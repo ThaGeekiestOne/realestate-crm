@@ -18,8 +18,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function Dialog({ title, copy, close, children }: { title: string; copy: string; close: () => void; children: React.ReactNode }) {
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-[#15251f]/35 p-4 backdrop-blur-[2px]" onMouseDown={close}>
-    <section onMouseDown={(event) => event.stopPropagation()} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-[#fbfcfa] p-5 shadow-2xl">
+  return <div className="fixed inset-0 z-50 grid items-end bg-[#15251f]/35 backdrop-blur-[2px] sm:place-items-center sm:p-4" onMouseDown={close}>
+    <section onMouseDown={(event) => event.stopPropagation()} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-[#fbfcfa] p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5">
       <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold tracking-[-0.04em]">{title}</h2><p className="mt-1 text-xs text-[#7c8984]">{copy}</p></div><button aria-label="Close form" onClick={close} className="grid h-8 w-8 place-items-center rounded-full bg-[#eef1ee] text-[#65736e]"><X size={15} /></button></div>
       {children}
     </section>

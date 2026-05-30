@@ -33,7 +33,7 @@ function Avatar({ initials, index = 0 }: { initials: string; index?: number }) {
 }
 
 function ToolHeader({ eyebrow, title, copy, back, action, onAction }: { eyebrow: string; title: string; copy: string; back: () => void; action?: string; onAction?: () => void }) {
-  return <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><button onClick={back} className="mb-3 flex items-center gap-1 text-[11px] font-bold text-[#176b4d]"><ChevronLeft size={14} />More tools</button><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8d9a95]">{eyebrow}</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.055em]">{title}</h2><p className="mt-1 text-sm text-[#74817c]">{copy}</p></div>{action && <button onClick={onAction} className="flex h-10 items-center gap-2 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white"><Plus size={15} />{action}</button>}</div>;
+  return <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><button onClick={back} className="mb-3 flex min-h-10 items-center gap-1 text-[11px] font-bold text-[#176b4d]"><ChevronLeft size={14} />More tools</button><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8d9a95]">{eyebrow}</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.055em]">{title}</h2><p className="mt-1 text-sm text-[#74817c]">{copy}</p></div>{action && <button onClick={onAction} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white sm:h-10 sm:w-auto"><Plus size={15} />{action}</button>}</div>;
 }
 
 export function AttendanceTool({ identity, records, history, updateAttendance, back, notify }: {

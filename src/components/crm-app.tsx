@@ -559,7 +559,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           </div>
         </header>
 
-        <main className="mx-auto max-w-[1480px] px-4 pb-24 pt-5 md:px-6 lg:px-8 lg:pb-8 lg:pt-7">
+        <main className="mx-auto max-w-[1480px] px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-5 md:px-6 lg:px-8 lg:pb-8 lg:pt-7">
           {!identity.isDemo && <WorkspaceSyncStatus state={workspaceStatus} retry={reloadWorkspace} />}
           {active === "dashboard" && <Dashboard identity={identity} leads={crmLeads} followups={crmFollowups} analytics={analytics} setActive={navigate} openTool={openTool} openForm={setFormDialog} setSelectedLead={setSelectedLead} />}
           {active === "leads" && <LeadsPage search={search} setSearch={setSearch} leadFilter={leadFilter} setLeadFilter={setLeadFilter} leads={filteredLeads} setSelectedLead={setSelectedLead} openForm={setFormDialog} />}
@@ -570,16 +570,16 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex h-[68px] items-center justify-around border-t border-[#e1e6e0] bg-white/95 px-1 backdrop-blur lg:hidden">
+      <nav aria-label="Primary navigation" className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(68px+env(safe-area-inset-bottom))] items-start justify-around border-t border-[#e1e6e0] bg-white/95 px-1 pt-2 backdrop-blur lg:hidden">
         {nav.map((item) => {
           const Icon = item.icon;
-          return <button key={item.key} onClick={() => navigate(item.key)} className={`flex min-w-[58px] flex-col items-center gap-1 text-[10px] font-semibold ${active === item.key ? "text-[#176b4d]" : "text-[#87918d]"}`}><Icon size={19} strokeWidth={active === item.key ? 2.5 : 2} />{item.label}</button>;
+          return <button aria-current={active === item.key ? "page" : undefined} key={item.key} onClick={() => navigate(item.key)} className={`relative flex min-h-12 min-w-[58px] flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold transition ${active === item.key ? "bg-[#edf6f1] text-[#176b4d]" : "text-[#87918d]"}`}><Icon size={19} strokeWidth={active === item.key ? 2.5 : 2} />{item.label}</button>;
         })}
       </nav>
 
       {selectedLead && <LeadDrawer lead={selectedLead} properties={crmProperties} close={() => setSelectedLead(null)} notify={notify} shareProperty={sendPropertyShare} />}
       {formDialog && <WorkspaceFormDialog state={formDialog} close={() => setFormDialog(null)} addLead={addLead} addProperty={addProperty} addFollowup={addFollowup} addSocialPost={addSocialPost} addMember={addMember} />}
-      {toast && <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-[#1d352c] px-4 py-2.5 text-xs font-semibold text-white shadow-xl lg:bottom-7"><CheckCircle2 size={15} />{toast}</div>}
+      {toast && <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-2xl bg-[#1d352c] px-4 py-2.5 text-center text-xs font-semibold text-white shadow-xl lg:bottom-7"><CheckCircle2 className="shrink-0" size={15} />{toast}</div>}
     </div>
   );
 }
@@ -697,7 +697,7 @@ function formatDashboardDate() {
 }
 
 function PageHeading({ eyebrow, title, copy, action, onAction }: { eyebrow: string; title: string; copy: string; action: string; onAction: () => void }) {
-  return <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8d9a95]">{eyebrow}</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.055em] text-[#1e2d28]">{title}</h2><p className="mt-1 text-sm text-[#74817c]">{copy}</p></div><button onClick={onAction} className="flex h-10 items-center gap-2 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white"><Plus size={16} />{action}</button></div>;
+  return <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8d9a95]">{eyebrow}</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.055em] text-[#1e2d28]">{title}</h2><p className="mt-1 text-sm text-[#74817c]">{copy}</p></div><button onClick={onAction} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white sm:h-10 sm:w-auto"><Plus size={16} />{action}</button></div>;
 }
 
 function LeadsPage({ search, setSearch, leadFilter, setLeadFilter, leads, setSelectedLead, openForm }: { search: string; setSearch: (value: string) => void; leadFilter: string; setLeadFilter: (value: string) => void; leads: Lead[]; setSelectedLead: (lead: Lead) => void; openForm: (state: FormDialogState) => void }) {
@@ -769,11 +769,11 @@ function FollowupActionTray({ item, templateId, sendQuickFollowup, snoozeFollowu
   snoozeFollowup: (followup: Followup) => Promise<void>;
   notify: (message: string) => void;
 }) {
-  return <div className="rounded-xl bg-[#f8faf7] p-3"><p className="text-[11px] font-bold text-[#52635d]">{item.lead}</p><div className="mt-2 flex flex-wrap gap-2"><FollowupAction label="WhatsApp" onClick={() => void sendQuickFollowup(item, "whatsapp", templateId)} /><FollowupAction label="SMS" onClick={() => void sendQuickFollowup(item, "sms", templateId)} /><FollowupAction label="Email" onClick={() => void sendQuickFollowup(item, "email", templateId)} /><button onClick={() => notify(`Call reminder ready for ${item.lead}`)} className="flex h-8 items-center gap-1 rounded-lg border border-[#e1e6e1] px-2.5 text-[10px] font-bold text-[#60706a]"><Phone size={12} />Call</button><button onClick={() => void snoozeFollowup(item)} className="flex h-8 items-center gap-1 rounded-lg border border-[#e1e6e1] px-2.5 text-[10px] font-bold text-[#60706a]"><Clock3 size={12} />Snooze</button></div></div>;
+  return <div className="rounded-xl bg-[#f8faf7] p-3"><p className="text-[11px] font-bold text-[#52635d]">{item.lead}</p><div className="mt-2 flex flex-wrap gap-2"><FollowupAction label="WhatsApp" onClick={() => void sendQuickFollowup(item, "whatsapp", templateId)} /><FollowupAction label="SMS" onClick={() => void sendQuickFollowup(item, "sms", templateId)} /><FollowupAction label="Email" onClick={() => void sendQuickFollowup(item, "email", templateId)} /><button onClick={() => notify(`Call reminder ready for ${item.lead}`)} className="flex min-h-10 items-center gap-1 rounded-lg border border-[#e1e6e1] px-3 text-[10px] font-bold text-[#60706a] sm:min-h-8 sm:px-2.5"><Phone size={12} />Call</button><button onClick={() => void snoozeFollowup(item)} className="flex min-h-10 items-center gap-1 rounded-lg border border-[#e1e6e1] px-3 text-[10px] font-bold text-[#60706a] sm:min-h-8 sm:px-2.5"><Clock3 size={12} />Snooze</button></div></div>;
 }
 
 function FollowupAction({ label, onClick }: { label: string; onClick: () => void }) {
-  return <button onClick={onClick} className="h-8 rounded-lg bg-[#e7f3ed] px-2.5 text-[10px] font-bold text-[#176b4d]">{label}</button>;
+  return <button onClick={onClick} className="min-h-10 rounded-lg bg-[#e7f3ed] px-3 text-[10px] font-bold text-[#176b4d] sm:min-h-8 sm:px-2.5">{label}</button>;
 }
 
 function formatFollowupActionTime(value: string) {
@@ -807,7 +807,7 @@ function MorePage({ attendance, openTool, openForm }: { attendance: typeof initi
 
 function LeadDrawer({ lead, properties, close, notify, shareProperty }: { lead: Lead; properties: typeof initialProperties; close: () => void; notify: (message: string) => void; shareProperty: (lead: Lead, property: typeof initialProperties[number], channel: PropertyShareChannel) => Promise<void> }) {
   const [showProperties, setShowProperties] = useState(false);
-  return <div className="fixed inset-0 z-40 bg-[#15251f]/30 backdrop-blur-[2px]" onMouseDown={close}><aside onMouseDown={(event) => event.stopPropagation()} className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto bg-white p-5 shadow-2xl">
+  return <div className="fixed inset-0 z-40 bg-[#15251f]/30 backdrop-blur-[2px]" onMouseDown={close}><aside onMouseDown={(event) => event.stopPropagation()} className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl">
     <div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8d9a95]">Lead details</p><button aria-label="Close lead details" onClick={close} className="grid h-8 w-8 place-items-center rounded-full bg-[#f1f3f0] text-[#68756f]"><X size={15} /></button></div>
     <div className="mt-6 flex items-center gap-3"><Avatar initials={lead.initials} size="lg" /><div><div className="flex items-center gap-2"><h3 className="text-lg font-bold tracking-[-0.04em]">{lead.name}</h3><Badge tone={temperatureTone(lead.temperature)}>{lead.temperature}</Badge></div><p className="mt-1 text-xs text-[#7c8984]">{lead.id} · {lead.source}</p></div></div>
     <div className="mt-6 grid grid-cols-3 gap-2"><DrawerAction icon={Phone} label="Call now" onClick={() => notify(`Calling ${lead.name} in dry-run mode`)} /><DrawerAction icon={MessageCircle} label="WhatsApp" onClick={() => notify(`WhatsApp follow-up prepared for ${lead.name}`)} /><DrawerAction icon={Share2} label="Property" onClick={() => setShowProperties(!showProperties)} /></div>
@@ -820,7 +820,7 @@ function LeadDrawer({ lead, properties, close, notify, shareProperty }: { lead: 
 }
 
 function ShareChannelButton({ label, icon: Icon, onClick }: { label: string; icon: typeof Phone; onClick: () => void }) {
-  return <button onClick={onClick} className="flex items-center justify-center gap-1 rounded-lg bg-[#edf5f1] px-2 py-2 text-[10px] font-bold text-[#176b4d]"><Icon size={12} />{label}</button>;
+  return <button onClick={onClick} className="flex min-h-10 items-center justify-center gap-1 rounded-lg bg-[#edf5f1] px-2 py-2 text-[10px] font-bold text-[#176b4d]"><Icon size={12} />{label}</button>;
 }
 
 function DrawerAction({ icon: Icon, label, onClick }: { icon: typeof Phone; label: string; onClick: () => void }) {

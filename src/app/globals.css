@@ -30,6 +30,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Geist", "Geist Fallback", Arial, sans-serif;
+  overflow-x: clip;
 }
 
 button,
