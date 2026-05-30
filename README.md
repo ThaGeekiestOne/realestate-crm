@@ -64,6 +64,14 @@ The follow-up queue supports reusable message templates, one-click WhatsApp, SMS
 
 The header bell opens a responsive in-app notification center with unread counts, per-item read actions, mark-all, and an empty state. Live sessions load user-addressed notifications from the protected `/api/notifications` route. Lead assignment, missed calls, scheduled follow-ups, site visits, and property sharing feed the notification table; demo mode persists the same read workflow in browser storage.
 
+The Vercel cron in `vercel.json` invokes `GET /api/cron/notifications` daily at `05:00 UTC`. Set a random `CRON_SECRET` with at least 16 characters in Vercel so scheduled invocations include the expected bearer token. The dispatcher creates deduplicated reminders for pending follow-ups, social posts scheduled within 24 hours, and prior-day attendance gaps. Daily scheduling keeps the project compatible with Vercel Hobby cron limits.
+
+For a manual production check:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://your-app.example/api/cron/notifications
+```
+
 ## Lead Operations
 
 The lead drawer supports qualification changes, hot-lead marking, note updates, sales-agent reassignment, and tenant-scoped activity history. Its **Call now** action uses the protected `/api/leads/actions` route to create a call log before starting the Twilio bridge adapter. The same route loads calls, messages, follow-ups, property shares, and activity records into the lead timeline. Demo mode simulates the call and keeps lead edits in browser storage.
@@ -105,6 +113,7 @@ The protected `/api/settings` route persists organization name, lead assignment 
 - `src/app/api/leads/actions/`: protected lead qualification, timeline, and bridge-call route.
 - `src/app/api/properties/actions/`: protected inventory update and deletion route.
 - `src/app/api/notifications/`: protected in-app notification feed and read-state route.
+- `src/app/api/cron/notifications/`: bearer-protected scheduled reminder dispatcher.
 - `src/app/api/team-members/`: protected admin team invitation and role-management route.
 - `src/app/api/settings/`: protected organization and provider-adapter settings route.
 - `src/app/api/site-visits/`: protected field walkthrough assignment and completion route.
