@@ -7,6 +7,7 @@ export type ModuleKey =
 
 export type WorkspaceTool =
   | "overview"
+  | "site-visits"
   | "attendance"
   | "social"
   | "reports"
@@ -86,6 +87,20 @@ export interface Followup {
   channel: "Call" | "WhatsApp" | "SMS" | "Email" | "Site visit";
   temperature: LeadTemperature;
   overdue?: boolean;
+}
+
+export interface SiteVisit {
+  id: string;
+  lead: string;
+  leadId?: string;
+  initials: string;
+  location: string;
+  scheduledFor: string;
+  assignee: string;
+  assigneeId?: string;
+  notes: string;
+  status: "Scheduled" | "Completed";
+  completedAt?: string;
 }
 
 export interface AttendanceRecord {

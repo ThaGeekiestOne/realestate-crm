@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { WorkspaceIdentity } from "@/lib/auth-types";
-import type { AnalyticsSnapshot, AttendanceHistoryRecord, AttendanceRecord, IntegrationSettings, Lead, Property, SocialPost, TeamMember, WorkspaceSettings, WorkspaceTool } from "@/lib/types";
+import type { AnalyticsSnapshot, AttendanceHistoryRecord, AttendanceRecord, IntegrationSettings, Lead, Property, SiteVisit, SocialPost, TeamMember, WorkspaceSettings, WorkspaceTool } from "@/lib/types";
 import { requestAttendanceCoordinates, type AttendanceAction, type AttendanceCoordinates } from "@/services/attendance-service";
 
 const inputClass = "mt-1.5 h-10 w-full rounded-lg border border-[#dfe5df] bg-white px-3 text-xs outline-none focus:border-[#8ab5a4]";
@@ -71,6 +71,53 @@ export function AttendanceTool({ identity, records, history, updateAttendance, b
     <section className="mt-5 rounded-2xl border border-[#e5e9e4] bg-white p-4"><h3 className="text-sm font-bold">Your attendance history</h3><div className="mt-3 divide-y divide-[#edf0ec]">{history.map((record) => <div key={record.id} className="flex items-center justify-between gap-3 py-3"><div><p className="text-xs font-bold">{record.date}</p><p className="mt-1 text-[10px] text-[#87938e]">{record.location || "No GPS location"}{record.notes ? ` - ${record.notes}` : ""}</p></div><div className="text-right"><Badge tone={record.status === "Checked in" ? "amber" : "green"}>{record.status}</Badge><p className="mt-1 text-[10px] text-[#87938e]">{record.checkIn}{record.checkOut ? ` - ${record.checkOut}` : ""}</p></div></div>)}</div>{!history.length && <p className="py-8 text-center text-xs text-[#87938e]">No attendance history recorded yet.</p>}</section>
     <section className="mt-5 rounded-2xl border border-[#e5e9e4] bg-white p-4"><div className="flex items-center justify-between"><h3 className="text-sm font-bold">Team today</h3><Badge tone="green">{records.filter((record) => record.status === "Checked in").length} checked in</Badge></div><div className="mt-3 divide-y divide-[#edf0ec]">{records.map((record, index) => <div key={record.id} className="flex items-center gap-3 py-3"><Avatar initials={record.initials} index={index} /><div className="min-w-0 flex-1"><p className="text-xs font-bold">{record.name}</p><p className="mt-1 truncate text-[10px] text-[#87938e]">{record.role} - {record.location || "No location"}</p></div><div className="text-right"><Badge tone={record.status === "Checked in" ? "green" : "neutral"}>{record.status}</Badge><p className="mt-1 text-[10px] text-[#87938e]">{record.checkIn || "No check-in"}</p></div></div>)}</div></section>
   </div>;
+}
+
+export function SiteVisitsTool({ identity, siteVisits, updateSiteVisit, back, openForm, notify }: {
+  identity: WorkspaceIdentity;
+  siteVisits: SiteVisit[];
+  updateSiteVisit: (siteVisit: SiteVisit, notes: string, complete?: boolean) => Promise<void>;
+  back: () => void;
+  openForm: () => void;
+  notify: (message: string) => void;
+}) {
+  const canSchedule = identity.isDemo || ["admin", "sales_manager"].includes(identity.role);
+  const scheduledVisits = siteVisits.filter((siteVisit) => siteVisit.status === "Scheduled");
+  const completedVisits = siteVisits.filter((siteVisit) => siteVisit.status === "Completed");
+
+  return <div>
+    <ToolHeader eyebrow="Field operations" title="Site visits" copy="Assign walkthroughs, capture field notes, and close completed visits." back={back} action={canSchedule ? "Schedule visit" : undefined} onAction={canSchedule ? openForm : undefined} />
+    <section className="grid gap-3 sm:grid-cols-3"><VisitMetric label="Scheduled" value={scheduledVisits.length} /><VisitMetric label="Completed" value={completedVisits.length} /><VisitMetric label="Assigned to you" value={siteVisits.filter((siteVisit) => siteVisit.assigneeId === identity.id).length} /></section>
+    <section className="mt-5 space-y-3">{siteVisits.map((siteVisit) => <SiteVisitCard key={siteVisit.id} siteVisit={siteVisit} updateSiteVisit={updateSiteVisit} notify={notify} />)}{!siteVisits.length && <div className="rounded-2xl border border-[#e5e9e4] bg-white py-14 text-center"><MapPin className="mx-auto text-[#a3afaa]" size={22} /><p className="mt-3 text-sm font-bold">No site visits assigned</p><p className="mt-1 text-xs text-[#89958f]">Scheduled walkthroughs will appear here.</p></div>}</section>
+  </div>;
+}
+
+function SiteVisitCard({ siteVisit, updateSiteVisit, notify }: { siteVisit: SiteVisit; updateSiteVisit: (siteVisit: SiteVisit, notes: string, complete?: boolean) => Promise<void>; notify: (message: string) => void }) {
+  const [notes, setNotes] = useState(siteVisit.notes);
+  const [submitting, setSubmitting] = useState(false);
+  const save = async (complete = false) => {
+    setSubmitting(true);
+
+    try {
+      await updateSiteVisit(siteVisit, notes, complete);
+      notify(complete ? `${siteVisit.lead} site visit completed` : `${siteVisit.lead} field notes saved`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to update site visit");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return <article className="rounded-2xl border border-[#e5e9e4] bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#edf5f1] text-[#176b4d]"><MapPin size={17} /></div><div className="min-w-0"><p className="truncate text-sm font-bold text-[#31423b]">{siteVisit.lead}</p><p className="mt-1 truncate text-[11px] text-[#87938e]">{siteVisit.location}</p></div></div><Badge tone={siteVisit.status === "Completed" ? "green" : "amber"}>{siteVisit.status}</Badge></div><div className="mt-4 grid gap-2 rounded-xl bg-[#f7f8f5] p-3 text-xs sm:grid-cols-2"><p><span className="font-bold text-[#596862]">Schedule:</span> <span className="text-[#7d8985]">{formatVisitTime(siteVisit.scheduledFor)}</span></p><p><span className="font-bold text-[#596862]">Field executive:</span> <span className="text-[#7d8985]">{siteVisit.assignee}</span></p>{siteVisit.completedAt && <p className="sm:col-span-2"><span className="font-bold text-[#596862]">Completed:</span> <span className="text-[#7d8985]">{siteVisit.completedAt}</span></p>}</div><label className="mt-4 block text-[11px] font-bold text-[#65736e]">Field notes<textarea disabled={submitting} value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} className="mt-1.5 min-h-20 w-full rounded-xl border border-[#dfe5df] bg-white px-3 py-2 text-xs outline-none focus:border-[#8ab5a4] disabled:bg-[#f7f8f5]" placeholder="Add walkthrough outcome, buyer feedback, or next steps..." /></label><div className="mt-3 flex flex-wrap gap-2"><button disabled={submitting} onClick={() => void save()} className="rounded-lg border border-[#dce6e0] px-3 py-2 text-xs font-bold text-[#176b4d] disabled:cursor-wait disabled:opacity-60">{submitting ? "Saving..." : "Save notes"}</button>{siteVisit.status !== "Completed" && <button disabled={submitting} onClick={() => void save(true)} className="rounded-lg bg-[#176b4d] px-3 py-2 text-xs font-bold text-white disabled:cursor-wait disabled:opacity-60">Mark completed</button>}</div></article>;
+}
+
+function VisitMetric({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-2xl border border-[#e5e9e4] bg-white p-4"><p className="text-2xl font-bold tracking-[-0.05em] text-[#315044]">{value}</p><p className="mt-1 text-xs text-[#87938e]">{label}</p></div>;
+}
+
+function formatVisitTime(value: string) {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? value : new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(new Date(timestamp));
 }
 
 export function SocialTool({ posts, publishPost, draftCaption, back, openForm }: {
@@ -187,6 +234,8 @@ export function WorkspaceToolView({ tool, ...props }: {
   attendance: AttendanceRecord[];
   attendanceHistory: AttendanceHistoryRecord[];
   updateAttendance: (action: AttendanceAction, coordinates: AttendanceCoordinates, notes: string, selfie?: File) => Promise<void>;
+  siteVisits: SiteVisit[];
+  updateSiteVisit: (siteVisit: SiteVisit, notes: string, complete?: boolean) => Promise<void>;
   socialPosts: SocialPost[];
   publishSocialPost: (post: SocialPost) => Promise<void>;
   draftSocialPostCaption: (post: SocialPost) => Promise<void>;
@@ -202,9 +251,11 @@ export function WorkspaceToolView({ tool, ...props }: {
   saveWorkspaceSettings: (settings: WorkspaceSettings) => Promise<void>;
   back: () => void;
   openSocialForm: () => void;
+  openSiteVisitForm: () => void;
   openMemberForm: () => void;
   notify: (message: string) => void;
 }) {
+  if (tool === "site-visits") return <SiteVisitsTool identity={props.identity} siteVisits={props.siteVisits} updateSiteVisit={props.updateSiteVisit} back={props.back} openForm={props.openSiteVisitForm} notify={props.notify} />;
   if (tool === "attendance") return <AttendanceTool identity={props.identity} records={props.attendance} history={props.attendanceHistory} updateAttendance={props.updateAttendance} back={props.back} notify={props.notify} />;
   if (tool === "social") return <SocialTool posts={props.socialPosts} publishPost={props.publishSocialPost} draftCaption={props.draftSocialPostCaption} back={props.back} openForm={props.openSocialForm} />;
   if (tool === "reports") return <ReportsTool leads={props.leads} analytics={props.analytics} back={props.back} />;

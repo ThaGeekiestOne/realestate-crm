@@ -44,6 +44,7 @@ import {
   leads as initialLeads,
   notifications as initialNotifications,
   properties as initialProperties,
+  siteVisits as initialSiteVisits,
   socialPosts as initialSocialPosts,
   teamMembers as initialTeamMembers,
 } from "@/lib/demo-data";
@@ -61,6 +62,7 @@ import type {
   LeadTemperature,
   ModuleKey,
   Property,
+  SiteVisit,
   SocialPost,
   WorkspaceSettings,
   WorkspaceTool,
@@ -123,6 +125,11 @@ import {
   updateOrganizationIntegrationSettings,
   updateOrganizationWorkspaceSettings,
 } from "@/services/workspace-settings-client-service";
+import {
+  createOrganizationSiteVisit,
+  getOrganizationSiteVisits,
+  updateOrganizationSiteVisit,
+} from "@/services/site-visit-client-service";
 
 const nav = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -269,6 +276,8 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const [demoAttendanceHistory, setDemoAttendanceHistory] = usePersistentState("estateflow.attendance-history", initialAttendanceHistory);
   const [remoteAttendance, setRemoteAttendance] = useState<AttendanceRecord[]>([]);
   const [remoteAttendanceHistory, setRemoteAttendanceHistory] = useState<AttendanceHistoryRecord[]>([]);
+  const [demoSiteVisits, setDemoSiteVisits] = usePersistentState("estateflow.site-visits", initialSiteVisits);
+  const [remoteSiteVisits, setRemoteSiteVisits] = useState<SiteVisit[]>([]);
   const [demoSocialPosts, setDemoSocialPosts] = usePersistentState("estateflow.social-posts", initialSocialPosts);
   const [remoteSocialPosts, setRemoteSocialPosts] = useState<SocialPost[]>([]);
   const [remoteAnalytics, setRemoteAnalytics] = useState<AnalyticsSnapshot>();
@@ -290,6 +299,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const canManageInventory = identity.isDemo || ["admin", "sales_manager"].includes(identity.role);
   const attendance = identity.isDemo ? demoAttendance : remoteAttendance;
   const attendanceHistory = identity.isDemo ? demoAttendanceHistory : remoteAttendanceHistory;
+  const siteVisits = identity.isDemo ? demoSiteVisits : remoteSiteVisits;
   const socialPosts = identity.isDemo ? demoSocialPosts : remoteSocialPosts;
   const members = identity.isDemo ? demoMembers : remoteMembers;
   const settings = normalizeIntegrationSettings(identity.isDemo ? demoIntegrationSettings : remoteIntegrationSettings);
@@ -299,7 +309,8 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
     properties: crmProperties,
     followups: crmFollowups,
     attendance,
-  }), [attendance, crmFollowups, crmLeads, crmProperties]);
+    siteVisits,
+  }), [attendance, crmFollowups, crmLeads, crmProperties, siteVisits]);
   const analytics = identity.isDemo ? demoAnalytics : remoteAnalytics ?? demoAnalytics;
 
   useEffect(() => {
@@ -311,9 +322,10 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
 
     const loadWorkspace = async () => {
       try {
-        const [snapshot, attendanceSnapshot, socialSnapshot, analyticsSnapshot, teamSnapshot, notificationSnapshot, settingsSnapshot] = await Promise.all([
+        const [snapshot, attendanceSnapshot, siteVisitSnapshot, socialSnapshot, analyticsSnapshot, teamSnapshot, notificationSnapshot, settingsSnapshot] = await Promise.all([
           getOrganizationWorkspaceSnapshot(identity),
           getOrganizationAttendance(identity),
+          getOrganizationSiteVisits(identity),
           getOrganizationSocialPosts(identity),
           getOrganizationAnalyticsSnapshot(identity),
           getOrganizationTeamMembers(identity),
@@ -327,6 +339,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           setRemoteFollowups(snapshot.followups);
           setRemoteAttendance(attendanceSnapshot.records);
           setRemoteAttendanceHistory(attendanceSnapshot.history);
+          setRemoteSiteVisits(siteVisitSnapshot);
           setRemoteSocialPosts(socialSnapshot.posts);
           setRemoteAnalytics(analyticsSnapshot);
           setRemoteMembers(teamSnapshot);
@@ -649,6 +662,39 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
     ]);
   };
 
+  const addSiteVisit = async (siteVisit: SiteVisit) => {
+    try {
+      const createdSiteVisit = await createOrganizationSiteVisit(identity, siteVisit);
+
+      if (identity.isDemo) {
+        setDemoSiteVisits([createdSiteVisit, ...demoSiteVisits]);
+        addDemoNotification({ type: "site_visit_scheduled", title: "Site visit assigned", body: `${createdSiteVisit.lead} at ${createdSiteVisit.location}.` });
+      } else {
+        setRemoteSiteVisits([createdSiteVisit, ...remoteSiteVisits]);
+        void refreshNotifications();
+      }
+
+      setFormDialog(null);
+      notify(`${createdSiteVisit.lead} site visit assigned to ${createdSiteVisit.assignee}`);
+      void refreshAnalytics();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to schedule site visit");
+    }
+  };
+
+  const updateSiteVisit = async (siteVisit: SiteVisit, notes: string, complete = false) => {
+    const updatedSiteVisit = await updateOrganizationSiteVisit(identity, siteVisit, notes, complete);
+    const updateSiteVisits = (items: SiteVisit[]) => items.map((item) => item.id === siteVisit.id ? updatedSiteVisit : item);
+
+    if (identity.isDemo) {
+      setDemoSiteVisits(updateSiteVisits(demoSiteVisits));
+    } else {
+      setRemoteSiteVisits(updateSiteVisits(remoteSiteVisits));
+    }
+
+    void refreshAnalytics();
+  };
+
   const addSocialPost = async (post: SocialPost, files: File[] = []) => {
     try {
       const createdPost = identity.isDemo ? post : (await createOrganizationSocialPost(identity, post, files)).post;
@@ -778,6 +824,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           {nav.map((item) => <NavButton key={item.key} item={item} active={active} setActive={navigate} />)}
           <p className="mb-3 mt-8 px-3 text-[10px] font-bold tracking-[0.16em] text-[#a0aaa5]">WORKSPACE</p>
           <SideItem label="Team" icon={UserCheck} onClick={() => openTool("team")} />
+          <SideItem label="Site visits" icon={MapPin} onClick={() => openTool("site-visits")} />
           <SideItem label="Reports" icon={BarChart3} onClick={() => openTool("reports")} />
           <SideItem label="Integrations" icon={Zap} onClick={() => openTool("integrations")} />
           <SideItem label="Settings" icon={Settings} onClick={() => openTool("settings")} />
@@ -822,7 +869,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           {active === "properties" && <PropertiesPage properties={crmProperties} leads={crmLeads} canManageInventory={canManageInventory} openForm={setFormDialog} setSelectedProperty={setSelectedProperty} />}
           {active === "followups" && <FollowupsPage followups={crmFollowups} analytics={analytics} completeFollowup={completeFollowup} sendQuickFollowup={sendQuickFollowup} snoozeFollowup={snoozeFollowup} openForm={setFormDialog} notify={notify} />}
           {active === "more" && !activeTool && <MorePage attendance={attendance} settings={settings} canManageTeam={identity.isDemo || identity.role === "admin"} openTool={openTool} openForm={setFormDialog} />}
-          {active === "more" && activeTool && <WorkspaceToolView tool={activeTool} identity={identity} analytics={analytics} attendance={attendance} attendanceHistory={attendanceHistory} updateAttendance={updateAttendance} socialPosts={socialPosts} publishSocialPost={publishSocialPost} draftSocialPostCaption={draftSocialPostCaption} leads={crmLeads} properties={crmProperties} members={members} updateTeamMember={updateTeamMember} settings={settings} setSettings={identity.isDemo ? setDemoIntegrationSettings : setRemoteIntegrationSettings} saveIntegrationSettings={saveIntegrationSettings} workspaceSettings={workspaceSettings} setWorkspaceSettings={identity.isDemo ? setDemoWorkspaceSettings : setRemoteWorkspaceSettings} saveWorkspaceSettings={saveWorkspaceSettings} back={() => setActiveTool(null)} openSocialForm={() => setFormDialog({ kind: "social" })} openMemberForm={() => setFormDialog({ kind: "member" })} notify={notify} />}
+          {active === "more" && activeTool && <WorkspaceToolView tool={activeTool} identity={identity} analytics={analytics} attendance={attendance} attendanceHistory={attendanceHistory} updateAttendance={updateAttendance} siteVisits={siteVisits} updateSiteVisit={updateSiteVisit} socialPosts={socialPosts} publishSocialPost={publishSocialPost} draftSocialPostCaption={draftSocialPostCaption} leads={crmLeads} properties={crmProperties} members={members} updateTeamMember={updateTeamMember} settings={settings} setSettings={identity.isDemo ? setDemoIntegrationSettings : setRemoteIntegrationSettings} saveIntegrationSettings={saveIntegrationSettings} workspaceSettings={workspaceSettings} setWorkspaceSettings={identity.isDemo ? setDemoWorkspaceSettings : setRemoteWorkspaceSettings} saveWorkspaceSettings={saveWorkspaceSettings} back={() => setActiveTool(null)} openSiteVisitForm={() => setFormDialog({ kind: "site-visit" })} openSocialForm={() => setFormDialog({ kind: "social" })} openMemberForm={() => setFormDialog({ kind: "member" })} notify={notify} />}
         </main>
       </div>
 
@@ -836,7 +883,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
       {selectedLead && <LeadDrawer key={selectedLead.id} identity={identity} lead={selectedLead} properties={crmProperties} members={members} close={() => setSelectedLead(null)} notify={notify} shareProperty={sendPropertyShare} callLead={callLead} updateLead={updateLead} />}
       {selectedProperty && <PropertyDrawer key={selectedProperty.id} property={selectedProperty} canManageInventory={canManageInventory} close={() => setSelectedProperty(null)} updateProperty={updateProperty} deleteProperty={deleteProperty} />}
       {showNotifications && <NotificationCenter notifications={notifications} close={() => setShowNotifications(false)} markRead={markNotificationRead} />}
-      {formDialog && <WorkspaceFormDialog state={formDialog} close={() => setFormDialog(null)} addLead={addLead} addProperty={addProperty} addFollowup={addFollowup} addSocialPost={addSocialPost} addMember={addMember} />}
+      {formDialog && <WorkspaceFormDialog state={formDialog} close={() => setFormDialog(null)} leads={crmLeads} members={members} addLead={addLead} addProperty={addProperty} addFollowup={addFollowup} addSiteVisit={addSiteVisit} addSocialPost={addSocialPost} addMember={addMember} />}
       {toast && <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-2xl bg-[#1d352c] px-4 py-2.5 text-center text-xs font-semibold text-white shadow-xl lg:bottom-7"><CheckCircle2 className="shrink-0" size={15} />{toast}</div>}
     </div>
   );
@@ -1114,6 +1161,7 @@ function getFollowupProgressDegrees(analytics: AnalyticsSnapshot) {
 
 function MorePage({ attendance, settings, canManageTeam, openTool, openForm }: { attendance: typeof initialAttendance; settings: IntegrationSettings; canManageTeam: boolean; openTool: (tool: WorkspaceTool) => void; openForm: (state: FormDialogState) => void }) {
   const modules = [
+    { label: "Site visits", copy: "Assign and close field walkthroughs", icon: MapPin, tool: "site-visits" },
     { label: "Attendance", copy: "Check in and track field teams", icon: UserCheck, tool: "attendance" },
     { label: "Social media", copy: "Plan and schedule posts", icon: Megaphone, tool: "social" },
     { label: "Reports", copy: "Review sales performance", icon: BarChart3, tool: "reports" },

@@ -74,6 +74,10 @@ The lead list supports search plus status, source, assigned-agent, temperature, 
 
 The attendance workspace captures browser GPS coordinates for check-in and check-out, accepts optional field notes and private selfie evidence, shows personal attendance history, and summarizes the current organization team. The protected `/api/attendance` route validates the signed-in workspace before reading or updating tenant-scoped attendance rows and logs attendance activity events. The private `attendance-media` bucket restricts uploads to the signed-in user's organization folder. Demo mode stores the same workflow locally in browser storage.
 
+## Site Visit Operations
+
+The Site Visits workspace uses protected tenant-scoped tasks for field walkthrough execution. Admins and sales managers can assign a lead, location, schedule, and field executive. Assigned field executives can review their visits, save field notes, and mark walkthroughs complete. The protected `/api/site-visits` route records notifications and lead timeline activity while demo mode persists the same workflow locally.
+
 ## Social Media Calendar
 
 The social media workspace stores tenant-scoped drafts and schedules, uploads post assets to the `social-media` bucket, supports internal publishing notes, and provides an AI caption helper. The protected `/api/social-posts` route handles calendar reads, draft creation, caption updates, and publish actions. Publishing runs in dry-run mode unless `SOCIAL_PUBLISH_DRY_RUN=false` and `SOCIAL_PUBLISH_WEBHOOK_URL` points to a Zapier, Make, SocialPilot, Buffer, or custom automation endpoint.
@@ -101,6 +105,7 @@ The protected `/api/settings` route persists organization name, lead assignment 
 - `src/app/api/notifications/`: protected in-app notification feed and read-state route.
 - `src/app/api/team-members/`: protected admin team invitation and role-management route.
 - `src/app/api/settings/`: protected organization and provider-adapter settings route.
+- `src/app/api/site-visits/`: protected field walkthrough assignment and completion route.
 - `supabase/migrations/`: organization-aware schema and Row Level Security starter.
 
 ## Supabase

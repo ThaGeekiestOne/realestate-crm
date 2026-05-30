@@ -1,4 +1,4 @@
-import type { AttendanceHistoryRecord, AttendanceRecord, Followup, Lead, Property, SocialPost, TeamMember, WorkspaceNotification } from "@/lib/types";
+import type { AttendanceHistoryRecord, AttendanceRecord, Followup, Lead, Property, SiteVisit, SocialPost, TeamMember, WorkspaceNotification } from "@/lib/types";
 
 export const leads: Lead[] = [
   { id: "LD-1048", name: "Aarav Mehta", initials: "AM", phone: "+91 98765 40218", source: "MagicBricks", propertyType: "Apartment", budget: "₹1.2–1.5 Cr", location: "Golf Course Road", status: "New", temperature: "Hot", agent: "Riya Kapoor", nextFollowup: "Today, 11:30 AM", created: "8 min ago", note: "Looking for a ready-to-move 3 BHK. Wants to schedule a visit this weekend." },
@@ -34,6 +34,12 @@ export const followups: Followup[] = [
   { id: "FU-29", lead: "Rohan Verma", initials: "RV", purpose: "Share payment plan for Emaar Palm Heights", time: "2:00 PM", channel: "WhatsApp", temperature: "Warm" },
   { id: "FU-28", lead: "Sneha Iyer", initials: "SI", purpose: "Confirm Saturday pickup details", time: "3:30 PM", channel: "Site visit", temperature: "Hot" },
   { id: "FU-27", lead: "Dev Khanna", initials: "DK", purpose: "Call back after missed bridge call", time: "10:45 AM", channel: "Call", temperature: "Warm", overdue: true },
+];
+
+export const siteVisits: SiteVisit[] = [
+  { id: "SV-01", lead: "Sneha Iyer", leadId: "LD-1045", initials: "SI", location: "Sector 79, Gurgaon", scheduledFor: "Today, 3:30 PM", assignee: "Aditi Verma", assigneeId: "demo-aditi", notes: "Confirm family pickup point and carry the plot layout.", status: "Scheduled" },
+  { id: "SV-02", lead: "Priya Sharma", leadId: "LD-1047", initials: "PS", location: "Sohna Road, Gurgaon", scheduledFor: "Tomorrow, 11:00 AM", assignee: "Aditi Verma", assigneeId: "demo-aditi", notes: "Walk through clubhouse and villa inventory.", status: "Scheduled" },
+  { id: "SV-03", lead: "Rohan Verma", leadId: "LD-1046", initials: "RV", location: "Dwarka Expressway, Gurgaon", scheduledFor: "28 May, 4:00 PM", assignee: "Aditi Verma", assigneeId: "demo-aditi", notes: "Buyer requested metro-corridor access notes.", status: "Completed", completedAt: "28 May, 5:10 PM" },
 ];
 
 export const activities = [

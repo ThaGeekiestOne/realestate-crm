@@ -3,13 +3,14 @@
 import type { WorkspaceIdentity } from "@/lib/auth-types";
 import { activities as demoActivities } from "@/lib/demo-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import type { AnalyticsSnapshot, AttendanceRecord, DashboardActivity, Followup, Lead, Property } from "@/lib/types";
+import type { AnalyticsSnapshot, AttendanceRecord, DashboardActivity, Followup, Lead, Property, SiteVisit } from "@/lib/types";
 
 interface AnalyticsInputs {
   leads: Lead[];
   properties: Property[];
   followups: Followup[];
   attendance: AttendanceRecord[];
+  siteVisits: SiteVisit[];
 }
 
 export function getDemoAnalyticsSnapshot(inputs: AnalyticsInputs): AnalyticsSnapshot {
@@ -23,7 +24,7 @@ export function getDemoAnalyticsSnapshot(inputs: AnalyticsInputs): AnalyticsSnap
     callsToday: 4,
     followupsDueToday: inputs.followups.length,
     urgentFollowups: inputs.followups.filter((followup) => followup.overdue).length,
-    siteVisitsToday: inputs.followups.filter((followup) => followup.channel === "Site visit").length,
+    siteVisitsToday: inputs.siteVisits.filter((siteVisit) => siteVisit.status === "Scheduled" && isDemoVisitToday(siteVisit.scheduledFor)).length,
     availableProperties: inputs.properties.filter((property) => property.status === "Available").length,
     teamCheckedIn: inputs.attendance.filter((record) => record.status === "Checked in").length,
     completedFollowups,
@@ -53,7 +54,7 @@ export async function getOrganizationAnalyticsSnapshot(identity: WorkspaceIdenti
   startOfToday.setHours(0, 0, 0, 0);
   const today = startOfToday.toISOString();
 
-  const [leads, properties, calls, followups, shares, attendance, activities] = await Promise.all([
+  const [leads, properties, calls, followups, shares, attendance, activities, siteVisits] = await Promise.all([
     supabase.from("leads").select("id, source, status, created_at").eq("organization_id", identity.organizationId),
     supabase.from("properties").select("id, availability_status").eq("organization_id", identity.organizationId),
     supabase.from("calls").select("id, created_at, profiles(full_name)").eq("organization_id", identity.organizationId),
@@ -61,8 +62,9 @@ export async function getOrganizationAnalyticsSnapshot(identity: WorkspaceIdenti
     supabase.from("lead_property_shares").select("id").eq("organization_id", identity.organizationId),
     supabase.from("attendance").select("id, user_id, check_out_time").eq("organization_id", identity.organizationId).gte("check_in_time", today),
     supabase.from("activities").select("id, activity_type, description, created_at").eq("organization_id", identity.organizationId).order("created_at", { ascending: false }).limit(5),
+    supabase.from("tasks").select("id, due_at, completed_at").eq("organization_id", identity.organizationId).eq("task_type", "site_visit"),
   ]);
-  const error = leads.error ?? properties.error ?? calls.error ?? followups.error ?? shares.error ?? attendance.error ?? activities.error;
+  const error = leads.error ?? properties.error ?? calls.error ?? followups.error ?? shares.error ?? attendance.error ?? activities.error ?? siteVisits.error;
 
   if (error) {
     throw new Error(error.message);
@@ -84,7 +86,7 @@ export async function getOrganizationAnalyticsSnapshot(identity: WorkspaceIdenti
     callsToday: callRows.filter((call) => call.created_at >= today).length,
     followupsDueToday: openFollowups.filter((followup) => isToday(followup.due_at)).length,
     urgentFollowups: openFollowups.filter((followup) => new Date(followup.due_at).getTime() < Date.now()).length,
-    siteVisitsToday: openFollowups.filter((followup) => followup.channel === "site_visit" && isToday(followup.due_at)).length,
+    siteVisitsToday: (siteVisits.data ?? []).filter((siteVisit) => !siteVisit.completed_at && siteVisit.due_at && isToday(siteVisit.due_at)).length,
     availableProperties: propertyRows.filter((property) => property.availability_status === "Available").length,
     teamCheckedIn: attendanceRows.filter((record) => !record.check_out_time).length,
     completedFollowups,
@@ -139,6 +141,10 @@ function isToday(value: string) {
   const date = new Date(value);
   const now = new Date();
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+}
+
+function isDemoVisitToday(value: string) {
+  return /^today\b/i.test(value) || (!Number.isNaN(Date.parse(value)) && isToday(value));
 }
 
 function percent(value: number, total: number) {

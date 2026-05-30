@@ -100,3 +100,20 @@ insert into social_posts (organization_id, assigned_to, post_type, title, captio
 values
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000105', 'Instagram Reel', 'Palm Heights walkthrough', 'Step inside a ready-to-move 3 BHK in Sector 77.', 'scheduled', now() + interval '1 day'),
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000105', 'Instagram Post', 'Weekend site visit guide', 'Three things to check before your next site visit.', 'draft', now() + interval '2 days');
+
+insert into tasks (id, organization_id, lead_id, assigned_to, title, task_type, due_at, notes, metadata)
+select
+  uuid_generate_v5('00000000-0000-4000-8000-000000000001', 'site-visit-' || leads.id),
+  leads.organization_id,
+  leads.id,
+  '00000000-0000-4000-8000-000000000104',
+  'Site visit: ' || leads.full_name,
+  'site_visit',
+  now() + interval '4 hours',
+  'Confirm pickup details and add field notes after the walkthrough.',
+  jsonb_build_object('location', leads.preferred_location)
+from leads
+where leads.organization_id = '00000000-0000-4000-8000-000000000001'
+order by leads.created_at
+limit 2
+on conflict (id) do nothing;

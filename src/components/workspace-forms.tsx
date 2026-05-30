@@ -1,9 +1,9 @@
 "use client";
 
 import { X } from "lucide-react";
-import type { Followup, Lead, LeadTemperature, Property, SocialPost, TeamMember } from "@/lib/types";
+import type { Followup, Lead, LeadTemperature, Property, SiteVisit, SocialPost, TeamMember } from "@/lib/types";
 
-type FormKind = "lead" | "property" | "followup" | "social" | "member";
+type FormKind = "lead" | "property" | "followup" | "site-visit" | "social" | "member";
 
 export interface FormDialogState {
   kind: FormKind;
@@ -26,12 +26,15 @@ function Dialog({ title, copy, close, children }: { title: string; copy: string;
   </div>;
 }
 
-export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFollowup, addSocialPost, addMember }: {
+export function WorkspaceFormDialog({ state, close, leads, members, addLead, addProperty, addFollowup, addSiteVisit, addSocialPost, addMember }: {
   state: FormDialogState;
   close: () => void;
+  leads: Lead[];
+  members: TeamMember[];
   addLead: (lead: Lead) => void;
   addProperty: (property: Property, imageFiles?: File[], documentFiles?: File[]) => void;
   addFollowup: (followup: Followup) => void;
+  addSiteVisit: (siteVisit: SiteVisit) => void;
   addSocialPost: (post: SocialPost, files?: File[]) => void;
   addMember: (member: TeamMember) => void;
 }) {
@@ -148,6 +151,41 @@ export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFol
     </Dialog>;
   }
 
+  if (state.kind === "site-visit") {
+    const fieldExecutives = members.filter((member) => member.role === "Field Executive");
+
+    return <Dialog title="Schedule site visit" copy="Assign a field executive and capture the walkthrough location." close={close}>
+      <form className="mt-5 grid gap-3 sm:grid-cols-2" onSubmit={(event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        const leadId = String(data.get("leadId"));
+        const leadName = leads.find((lead) => lead.id === leadId)?.name ?? "Unassigned lead";
+        const assigneeId = String(data.get("assigneeId"));
+        const assignee = fieldExecutives.find((member) => (member.profileId ?? member.id) === assigneeId);
+        addSiteVisit({
+          id: `SV-${leadName}-${String(data.get("scheduledAt"))}`,
+          lead: leadName,
+          leadId,
+          initials: leadName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase(),
+          location: String(data.get("location")),
+          scheduledFor: new Date(String(data.get("scheduledAt"))).toISOString(),
+          assignee: assignee?.name ?? "Unassigned",
+          assigneeId,
+          notes: String(data.get("notes")),
+          status: "Scheduled",
+        });
+      }}>
+        <Field label="Lead"><select required name="leadId" className={inputClass} defaultValue={state.lead?.id}>{leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.name}</option>)}</select></Field>
+        <Field label="Field executive"><select required name="assigneeId" className={inputClass}>{fieldExecutives.map((member) => <option key={member.id} value={member.profileId ?? member.id}>{member.name}</option>)}</select></Field>
+        <Field label="Schedule"><input required name="scheduledAt" type="datetime-local" className={inputClass} /></Field>
+        <Field label="Location"><input required name="location" className={inputClass} placeholder="Sector 77 site office" /></Field>
+        <label className="text-[11px] font-bold text-[#65736e] sm:col-span-2">Visit instructions<textarea name="notes" className={textareaClass} placeholder="Pickup point, inventory to show, and buyer requests..." /></label>
+        {!fieldExecutives.length && <p className="text-xs font-semibold text-[#b34b49] sm:col-span-2">Add a field executive before scheduling a visit.</p>}
+        <FormActions close={close} disabled={!fieldExecutives.length} />
+      </form>
+    </Dialog>;
+  }
+
   if (state.kind === "social") {
     return <Dialog title="Create social post" copy="Add a draft to the content calendar." close={close}>
       <form className="mt-5 grid gap-3 sm:grid-cols-2" onSubmit={(event) => {
@@ -184,8 +222,8 @@ export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFol
   </Dialog>;
 }
 
-function FormActions({ close }: { close: () => void }) {
-  return <div className="mt-2 flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={close} className="rounded-lg border border-[#dfe5df] px-4 py-2.5 text-xs font-bold text-[#65736e]">Cancel</button><button type="submit" className="rounded-lg bg-[#176b4d] px-4 py-2.5 text-xs font-bold text-white">Save record</button></div>;
+function FormActions({ close, disabled = false }: { close: () => void; disabled?: boolean }) {
+  return <div className="mt-2 flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={close} className="rounded-lg border border-[#dfe5df] px-4 py-2.5 text-xs font-bold text-[#65736e]">Cancel</button><button disabled={disabled} type="submit" className="rounded-lg bg-[#176b4d] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Save record</button></div>;
 }
 
 function getOptionalNumber(data: FormData, field: string) {
