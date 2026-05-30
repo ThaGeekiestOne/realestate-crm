@@ -2,7 +2,7 @@
 
 import type { WorkspaceIdentity } from "@/lib/auth-types";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import type { Followup, Lead, LeadStatus, LeadTemperature, Property } from "@/lib/types";
+import type { Followup, Lead, LeadStatus, LeadTemperature, Property, PropertyDocument } from "@/lib/types";
 
 interface LeadRecord {
   id: string;
@@ -41,6 +41,7 @@ interface PropertyRecord {
   notes: string | null;
   internal_tags: string[];
   property_images?: { storage_path: string }[] | null;
+  property_documents?: { id: string; storage_path: string; document_type: string | null }[] | null;
 }
 
 interface FollowupRecord {
@@ -251,6 +252,13 @@ function mapProperty(record: PropertyRecord): Property {
   const images = (record.property_images ?? []).map(({ storage_path }) => (
     supabase?.storage.from("property-media").getPublicUrl(storage_path).data.publicUrl
   )).filter(Boolean) as string[];
+  const documents = (record.property_documents ?? []).map(({ id, storage_path, document_type }) => ({
+    id,
+    name: getStorageFileName(storage_path),
+    type: document_type ?? "Document",
+    url: supabase?.storage.from("property-documents").getPublicUrl(storage_path).data.publicUrl,
+    storagePath: storage_path,
+  }));
 
   return {
     id: record.id,
@@ -262,6 +270,7 @@ function mapProperty(record: PropertyRecord): Property {
     status: record.availability_status,
     image: images[0] ?? "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=900&q=80",
     images,
+    documents,
     matches: 0,
     address: record.address ?? undefined,
     sizeSqft: record.size_sqft ?? undefined,
@@ -312,7 +321,7 @@ export async function getOrganizationWorkspaceSnapshot(identity: WorkspaceIdenti
       .order("created_at", { ascending: false }),
     supabase
       .from("properties")
-      .select("id, title, location, property_type, price, description, address, size_sqft, bedrooms, bathrooms, floor, furnishing_status, availability_status, units_available, owner_developer, amenities, notes, internal_tags, property_images(storage_path)")
+      .select("id, title, location, property_type, price, description, address, size_sqft, bedrooms, bathrooms, floor, furnishing_status, availability_status, units_available, owner_developer, amenities, notes, internal_tags, property_images(storage_path), property_documents(id, storage_path, document_type)")
       .eq("organization_id", identity.organizationId)
       .order("created_at", { ascending: false }),
     supabase
@@ -380,7 +389,7 @@ export async function createOrganizationLead(identity: WorkspaceIdentity, input:
   return mapLead(data);
 }
 
-export async function createOrganizationProperty(identity: WorkspaceIdentity, input: CreateOrganizationPropertyInput, files: File[] = []) {
+export async function createOrganizationProperty(identity: WorkspaceIdentity, input: CreateOrganizationPropertyInput, imageFiles: File[] = [], documentFiles: File[] = []) {
   const supabase = requireSupabase();
   const { data, error } = await supabase
     .from("properties")
@@ -411,15 +420,16 @@ export async function createOrganizationProperty(identity: WorkspaceIdentity, in
     throw new Error(error.message);
   }
 
-  if (!files.length) {
+  if (!imageFiles.length && !documentFiles.length) {
     return mapProperty(data);
   }
 
   const uploadedPaths: string[] = [];
+  const uploadedDocuments: PropertyDocument[] = [];
 
-  for (const [index, file] of files.entries()) {
+  for (const [index, file] of imageFiles.entries()) {
     const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-    const path = `${identity.organizationId}/${data.id}/${crypto.randomUUID()}.${extension}`;
+    const path = `${identity.organizationId}/${data.id}/${crypto.randomUUID()}-${sanitizeFileName(file.name, extension)}`;
     const { error: uploadError } = await supabase.storage.from("property-media").upload(path, file, {
       contentType: file.type,
       upsert: false,
@@ -443,7 +453,55 @@ export async function createOrganizationProperty(identity: WorkspaceIdentity, in
     }
   }
 
-  return mapProperty({ ...data, property_images: uploadedPaths.map((storage_path) => ({ storage_path })) });
+  for (const file of documentFiles) {
+    const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "pdf";
+    const path = `${identity.organizationId}/${data.id}/${crypto.randomUUID()}-${sanitizeFileName(file.name, extension)}`;
+    const { error: uploadError } = await supabase.storage.from("property-documents").upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
+
+    const { data: document, error: documentError } = await supabase.from("property_documents").insert({
+      organization_id: identity.organizationId,
+      property_id: data.id,
+      storage_path: path,
+      document_type: file.type || extension.toUpperCase(),
+    }).select("id").single<{ id: string }>();
+
+    if (documentError) {
+      throw new Error(documentError.message);
+    }
+
+    uploadedDocuments.push({
+      id: document.id,
+      name: file.name,
+      type: file.type || extension.toUpperCase(),
+      storagePath: path,
+    });
+  }
+
+  return mapProperty({
+    ...data,
+    property_images: uploadedPaths.map((storage_path) => ({ storage_path })),
+    property_documents: uploadedDocuments.map((document) => ({
+      id: document.id ?? crypto.randomUUID(),
+      storage_path: document.storagePath ?? "",
+      document_type: document.type,
+    })),
+  });
+}
+
+function getStorageFileName(storagePath: string) {
+  return (storagePath.split("/").pop() ?? "Property document").replace(/^[0-9a-f-]+-/i, "");
+}
+
+function sanitizeFileName(fileName: string, fallbackExtension: string) {
+  const sanitized = fileName.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return sanitized || `property-document.${fallbackExtension}`;
 }
 
 export async function createOrganizationFollowup(identity: WorkspaceIdentity, input: CreateOrganizationFollowupInput) {

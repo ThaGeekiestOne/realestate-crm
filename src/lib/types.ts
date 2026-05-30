@@ -54,6 +54,7 @@ export interface Property {
   status: "Available" | "Hold" | "Sold" | "Rented";
   image: string;
   images?: string[];
+  documents?: PropertyDocument[];
   matches: number;
   address?: string;
   sizeSqft?: number;
@@ -66,6 +67,14 @@ export interface Property {
   amenities?: string[];
   notes?: string;
   internalTags?: string[];
+}
+
+export interface PropertyDocument {
+  id?: string;
+  name: string;
+  type: string;
+  url?: string;
+  storagePath?: string;
 }
 
 export interface Followup {

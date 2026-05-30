@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Clock3,
   Filter,
+  FileText,
   Home,
   LayoutDashboard,
   LoaderCircle,
@@ -419,9 +420,9 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
     }
   };
 
-  const addProperty = async (property: typeof crmProperties[number], files: File[] = []) => {
+  const addProperty = async (property: typeof crmProperties[number], imageFiles: File[] = [], documentFiles: File[] = []) => {
     try {
-      const createdProperty = identity.isDemo ? property : await createOrganizationProperty(identity, property, files);
+      const createdProperty = identity.isDemo ? property : await createOrganizationProperty(identity, property, imageFiles, documentFiles);
       if (identity.isDemo) {
         setDemoProperties([createdProperty, ...demoProperties]);
       } else {
@@ -1086,6 +1087,7 @@ function PropertyDrawer({ property, canManageInventory, close, updateProperty, d
     <div className="p-5">
       <div className="grid grid-cols-2 gap-3 rounded-xl bg-[#f7f8f5] p-4 text-xs"><Detail label="Price" value={property.price} /><Detail label="Type" value={property.type} /><Detail label="Size" value={property.sizeSqft ? `${property.sizeSqft.toLocaleString("en-IN")} sq.ft.` : "Not set"} /><Detail label="Units" value={String(property.unitsAvailable ?? 1)} /><Detail label="Bedrooms" value={String(property.bedrooms ?? "Not set")} /><Detail label="Bathrooms" value={String(property.bathrooms ?? "Not set")} /></div>
       {!!property.amenities?.length && <div className="mt-5"><SectionTitle title="Amenities" /><div className="mt-3 flex flex-wrap gap-2">{property.amenities.map((amenity) => <Badge key={amenity} tone="green">{amenity}</Badge>)}</div></div>}
+      <div className="mt-5"><SectionTitle title="Brochures and documents" /><div className="mt-3 space-y-2">{property.documents?.map((document) => document.url ? <a key={document.id ?? document.name} href={document.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-[#e6eae5] p-3 text-left transition hover:border-[#bdd6cb]"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#edf5f1] text-[#176b4d]"><FileText size={15} /></div><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#40514b]">{document.name}</p><p className="mt-1 text-[10px] text-[#89958f]">{document.type}</p></div><span className="text-[10px] font-bold text-[#176b4d]">Open</span></a> : <div key={document.id ?? document.name} className="flex items-center gap-3 rounded-xl border border-[#e6eae5] p-3"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#edf5f1] text-[#176b4d]"><FileText size={15} /></div><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#40514b]">{document.name}</p><p className="mt-1 text-[10px] text-[#89958f]">{document.type}</p></div></div>)}{!property.documents?.length && <p className="rounded-xl bg-[#f7f8f5] p-3 text-xs text-[#89958f]">No brochures uploaded yet.</p>}</div></div>
       <div className="mt-5"><SectionTitle title={canManageInventory ? "Inventory controls" : "Inventory details"} /><div className="mt-3 grid gap-3 rounded-xl border border-[#e6eae5] p-3 sm:grid-cols-2">
         <DrawerField label="Title"><input disabled={!canManageInventory} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className={drawerInputClass} /></DrawerField>
         <DrawerField label="Location"><input disabled={!canManageInventory} value={draft.location} onChange={(event) => setDraft({ ...draft, location: event.target.value })} className={drawerInputClass} /></DrawerField>

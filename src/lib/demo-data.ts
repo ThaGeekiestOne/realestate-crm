@@ -23,6 +23,7 @@ export const properties: Property[] = ([
   unitsAvailable: [4, 7, 2, 5][index],
   ownerDeveloper: ["Emaar", "DLF", "M3M", "Godrej Properties"][index],
   amenities: ["Clubhouse", "Security", "Parking"],
+  documents: [{ name: `${property.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-brochure.pdf`, type: "Brochure" }],
   notes: "Sales team inventory record. Verify availability before confirming a visit.",
   internalTags: ["verified", "share-ready"],
 }));

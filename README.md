@@ -48,13 +48,13 @@ The lead webhook creates a call log before dialing the agent. Twilio then calls 
 
 ## Property Photos And Sharing
 
-The `property-media` Supabase Storage bucket is created by migration and allows public reads while restricting uploads, updates, and deletes to the signed-in organization folder. Property creation accepts multiple photos when Supabase is configured.
+The `property-media` and `property-documents` Supabase Storage buckets are created by migration and allow public reads while restricting uploads, updates, and deletes to the signed-in organization folder. Property creation accepts multiple photos plus brochures, floor plans, and payment schedules when Supabase is configured.
 
 From a lead drawer, choose **Property**, select a listing, and send a public tokenized share page via WhatsApp, SMS, or email. The protected `/api/property-shares` route validates the session, enforces organization ownership for the lead and property, dispatches through Twilio or Resend, and records the message and activity timeline event. Dry-run modes generate share records and provider IDs without sending external messages.
 
 ## Inventory Operations
 
-The inventory workspace supports structured property creation, search, status/type/location filters, property detail drawers, photo galleries, availability updates, and protected deletion with Storage cleanup. Admins and sales managers can update inventory through `/api/properties/actions`; other organization members retain read access. Inventory cards calculate matching lead counts, and the lead drawer ranks shareable properties by type, location, and budget fit.
+The inventory workspace supports structured property creation, search, status/type/location filters, property detail drawers, photo galleries, brochure lists, availability updates, and protected deletion with Storage cleanup. Admins and sales managers can update inventory through `/api/properties/actions`; other organization members retain read access. Inventory cards calculate matching lead counts, and the lead drawer ranks shareable properties by type, location, and budget fit. Public tokenized property pages expose uploaded brochures alongside photos and listing details.
 
 ## One-Click Follow-Ups
 

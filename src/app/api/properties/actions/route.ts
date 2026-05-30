@@ -130,19 +130,27 @@ export async function DELETE(request: Request) {
 
   const { data: property, error: propertyError } = await context.supabase
     .from("properties")
-    .select("id, property_images(storage_path)")
+    .select("id, property_images(storage_path), property_documents(storage_path)")
     .eq("id", parsed.data.propertyId)
     .eq("organization_id", context.profile.organization_id)
-    .single<{ id: string; property_images: { storage_path: string }[] | null }>();
+    .single<{ id: string; property_images: { storage_path: string }[] | null; property_documents: { storage_path: string }[] | null }>();
 
   if (propertyError || !property) {
     return NextResponse.json({ error: "Property not found in your organization" }, { status: 404 });
   }
 
   const storagePaths = (property.property_images ?? []).map((image) => image.storage_path);
+  const documentPaths = (property.property_documents ?? []).map((document) => document.storage_path);
 
   if (storagePaths.length) {
     const { error } = await context.supabase.storage.from("property-media").remove(storagePaths);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+  }
+
+  if (documentPaths.length) {
+    const { error } = await context.supabase.storage.from("property-documents").remove(documentPaths);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

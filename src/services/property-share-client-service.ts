@@ -54,6 +54,7 @@ function getDemoPropertyToken(property: Property) {
     price: property.price,
     details: property.details,
     images: property.images?.length ? property.images : [property.image],
+    documents: property.documents ?? [],
   });
   const bytes = new TextEncoder().encode(payload);
   const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");

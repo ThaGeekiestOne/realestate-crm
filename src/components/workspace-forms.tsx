@@ -30,7 +30,7 @@ export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFol
   state: FormDialogState;
   close: () => void;
   addLead: (lead: Lead) => void;
-  addProperty: (property: Property, files?: File[]) => void;
+  addProperty: (property: Property, imageFiles?: File[], documentFiles?: File[]) => void;
   addFollowup: (followup: Followup) => void;
   addSocialPost: (post: SocialPost, files?: File[]) => void;
   addMember: (member: TeamMember) => void;
@@ -78,6 +78,7 @@ export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFol
       <form className="mt-5 grid gap-3 sm:grid-cols-2" onSubmit={(event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
+        const documentFiles = getFiles(data, "documents");
         addProperty({
           id: `PR-${Date.now().toString().slice(-4)}`,
           title: String(data.get("title")),
@@ -95,9 +96,10 @@ export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFol
           amenities: getList(data, "amenities"),
           notes: String(data.get("notes")),
           internalTags: getList(data, "internalTags"),
+          documents: documentFiles.map((file) => ({ name: file.name, type: file.type || "Document" })),
           image: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=900&q=80",
           matches: 0,
-        }, data.getAll("images").filter((value): value is File => value instanceof File && value.size > 0));
+        }, getFiles(data, "images"), documentFiles);
       }}>
         <Field label="Property title"><input required name="title" className={inputClass} placeholder="Project or listing name" /></Field>
         <Field label="Location"><input required name="location" className={inputClass} placeholder="Sector 65, Gurgaon" /></Field>
@@ -115,6 +117,7 @@ export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFol
         <Field label="Internal tags"><input name="internalTags" className={inputClass} placeholder="Ready to move, premium" /></Field>
         <label className="text-[11px] font-bold text-[#65736e] sm:col-span-2">Internal notes<textarea name="notes" className={textareaClass} placeholder="Inventory notes for the sales team..." /></label>
         <label className="text-[11px] font-bold text-[#65736e] sm:col-span-2">Property photos<input name="images" type="file" accept="image/*" multiple className="mt-1.5 block w-full rounded-lg border border-[#dfe5df] bg-white px-3 py-2 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-[#e7f3ed] file:px-3 file:py-1.5 file:text-[11px] file:font-bold file:text-[#176b4d]" /><span className="mt-1 block text-[10px] font-medium text-[#98a39f]">Uploads are stored in your organization&apos;s Supabase Storage folder when connected.</span></label>
+        <label className="text-[11px] font-bold text-[#65736e] sm:col-span-2">Brochures and documents<input name="documents" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" multiple className="mt-1.5 block w-full rounded-lg border border-[#dfe5df] bg-white px-3 py-2 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-[#e7f3ed] file:px-3 file:py-1.5 file:text-[11px] file:font-bold file:text-[#176b4d]" /><span className="mt-1 block text-[10px] font-medium text-[#98a39f]">Add brochures, floor plans, or payment schedules for the public share page.</span></label>
         <FormActions close={close} />
       </form>
     </Dialog>;
@@ -195,4 +198,8 @@ function getList(data: FormData, field: string) {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function getFiles(data: FormData, field: string) {
+  return data.getAll(field).filter((value): value is File => value instanceof File && value.size > 0);
 }

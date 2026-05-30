@@ -1,4 +1,4 @@
-import { Building2, MapPin, Phone, Share2 } from "lucide-react";
+import { Building2, Download, FileText, MapPin, Phone, Share2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getPublicPropertyShare } from "@/services/public-property-share-service";
 
@@ -31,6 +31,7 @@ export default async function PublicPropertySharePage({ params }: { params: Prom
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8c9893]">{property.type}</p>
           <div className="mt-2 flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-3xl font-bold tracking-[-0.065em] text-[#20312b]">{property.title}</h1><p className="mt-2 flex items-center gap-1.5 text-sm text-[#74817c]"><MapPin size={15} />{property.location}</p></div><p className="text-xl font-bold tracking-[-0.04em] text-[#176b4d]">{property.price}</p></div>
           <p className="mt-7 max-w-3xl text-sm leading-7 text-[#67756f]">{property.description}</p>
+          {!!property.documents.length && <div className="mt-7"><h2 className="text-sm font-bold text-[#31423b]">Brochures and documents</h2><div className="mt-3 grid gap-2 sm:grid-cols-2">{property.documents.map((document) => document.url ? <a key={document.id ?? document.name} href={document.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-[#dfe5df] bg-white p-3 transition hover:border-[#bdd6cb]"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#edf5f1] text-[#176b4d]"><FileText size={15} /></div><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#40514b]">{document.name}</p><p className="mt-1 text-[10px] text-[#89958f]">{document.type}</p></div><Download className="text-[#176b4d]" size={14} /></a> : <div key={document.id ?? document.name} className="flex items-center gap-3 rounded-xl border border-[#dfe5df] bg-white p-3"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#edf5f1] text-[#176b4d]"><FileText size={15} /></div><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#40514b]">{document.name}</p><p className="mt-1 text-[10px] text-[#89958f]">{document.type}</p></div></div>)}</div></div>}
           <div className="mt-7 flex flex-wrap gap-3"><a href="tel:+919876500001" className="flex h-11 items-center gap-2 rounded-xl bg-[#176b4d] px-4 text-xs font-bold text-white"><Phone size={15} />Call property advisor</a><a href={whatsappShareUrl} target="_blank" rel="noreferrer" className="flex h-11 items-center gap-2 rounded-xl border border-[#dfe5df] bg-white px-4 text-xs font-bold text-[#596862]"><Share2 size={15} />Share this property</a></div>
         </div>
       </section>
