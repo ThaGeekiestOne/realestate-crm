@@ -241,6 +241,7 @@ export function mapLead(record: LeadRecord): Lead {
     agent: assignedProfile?.full_name ?? "Unassigned",
     nextFollowup: formatDateTime(record.next_followup_at),
     created: formatDateTime(record.created_at),
+    createdAt: record.created_at,
     note: record.notes ?? "No notes added yet.",
   };
 }
@@ -336,9 +337,11 @@ export async function getOrganizationWorkspaceSnapshot(identity: WorkspaceIdenti
 export async function createOrganizationLead(identity: WorkspaceIdentity, input: CreateOrganizationLeadInput) {
   const supabase = requireSupabase();
   const { budgetMin, budgetMax } = parseBudget(input.budget);
-  const { data: agents, error: assignmentError } = await supabase.rpc("assign_next_sales_agent", {
-    target_organization_id: identity.organizationId,
-  });
+  const { data: agents, error: assignmentError } = identity.role === "sales_agent"
+    ? { data: null, error: null }
+    : await supabase.rpc("assign_next_sales_agent", {
+      target_organization_id: identity.organizationId,
+    });
 
   if (assignmentError) {
     throw new Error(assignmentError.message);

@@ -55,6 +55,7 @@ export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFol
           agent: "Riya Kapoor",
           nextFollowup: "Not scheduled",
           created: "Just now",
+          createdAt: new Date().toISOString(),
           note: String(data.get("note")),
         });
       }}>

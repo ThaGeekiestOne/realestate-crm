@@ -227,6 +227,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const crmLeads = identity.isDemo ? demoLeads : remoteLeads;
   const crmProperties = identity.isDemo ? demoProperties : remoteProperties;
   const crmFollowups = identity.isDemo ? demoFollowups : remoteFollowups;
+  const canAddLead = identity.isDemo || ["admin", "sales_manager", "sales_agent"].includes(identity.role);
   const canManageInventory = identity.isDemo || ["admin", "sales_manager"].includes(identity.role);
   const attendance = identity.isDemo ? demoAttendance : remoteAttendance;
   const attendanceHistory = identity.isDemo ? demoAttendanceHistory : remoteAttendanceHistory;
@@ -682,8 +683,8 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
 
         <main className="mx-auto max-w-[1480px] px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-5 md:px-6 lg:px-8 lg:pb-8 lg:pt-7">
           {!identity.isDemo && <WorkspaceSyncStatus state={workspaceStatus} retry={reloadWorkspace} />}
-          {active === "dashboard" && <Dashboard identity={identity} leads={crmLeads} followups={crmFollowups} analytics={analytics} setActive={navigate} openTool={openTool} openForm={setFormDialog} setSelectedLead={setSelectedLead} />}
-          {active === "leads" && <LeadsPage search={search} setSearch={setSearch} leadFilter={leadFilter} setLeadFilter={setLeadFilter} leads={filteredLeads} setSelectedLead={setSelectedLead} openForm={setFormDialog} />}
+          {active === "dashboard" && <Dashboard identity={identity} leads={crmLeads} followups={crmFollowups} analytics={analytics} canAddLead={canAddLead} setActive={navigate} openTool={openTool} openForm={setFormDialog} setSelectedLead={setSelectedLead} />}
+          {active === "leads" && <LeadsPage search={search} setSearch={setSearch} leadFilter={leadFilter} setLeadFilter={setLeadFilter} leads={filteredLeads} canAddLead={canAddLead} setSelectedLead={setSelectedLead} openForm={setFormDialog} />}
           {active === "properties" && <PropertiesPage properties={crmProperties} leads={crmLeads} canManageInventory={canManageInventory} openForm={setFormDialog} setSelectedProperty={setSelectedProperty} />}
           {active === "followups" && <FollowupsPage followups={crmFollowups} analytics={analytics} completeFollowup={completeFollowup} sendQuickFollowup={sendQuickFollowup} snoozeFollowup={snoozeFollowup} openForm={setFormDialog} notify={notify} />}
           {active === "more" && !activeTool && <MorePage attendance={attendance} canManageTeam={identity.isDemo || identity.role === "admin"} openTool={openTool} openForm={setFormDialog} />}
@@ -724,7 +725,7 @@ function SideItem({ label, icon: Icon, onClick }: { label: string; icon: typeof 
   return <button onClick={onClick} className="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-semibold text-[#718079] hover:bg-[#f0f3ef]"><Icon size={17} />{label}</button>;
 }
 
-function Dashboard({ identity, leads, followups, analytics, setActive, openTool, openForm, setSelectedLead }: { identity: WorkspaceIdentity; leads: Lead[]; followups: typeof initialFollowups; analytics: AnalyticsSnapshot; setActive: (key: ModuleKey) => void; openTool: (tool: WorkspaceTool) => void; openForm: (state: FormDialogState) => void; setSelectedLead: (lead: Lead) => void }) {
+function Dashboard({ identity, leads, followups, analytics, canAddLead, setActive, openTool, openForm, setSelectedLead }: { identity: WorkspaceIdentity; leads: Lead[]; followups: typeof initialFollowups; analytics: AnalyticsSnapshot; canAddLead: boolean; setActive: (key: ModuleKey) => void; openTool: (tool: WorkspaceTool) => void; openForm: (state: FormDialogState) => void; setSelectedLead: (lead: Lead) => void }) {
   const pipeline = ["New", "Contacted", "Interested", "Site Visit", "Negotiation"];
   const maxPipeline = Math.max(1, ...pipeline.map((status) => analytics.pipeline[status] ?? 0));
   const conversionDegrees = Math.round((analytics.conversionRate / 100) * 360);
@@ -733,7 +734,7 @@ function Dashboard({ identity, leads, followups, analytics, setActive, openTool,
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div><p className="text-xs font-semibold text-[#7b8983]">{formatDashboardDate()}</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.055em] text-[#1e2d28]">Good morning, {identity.fullName.split(" ")[0]}</h2><p className="mt-1 text-sm text-[#74817c]">Here&apos;s what&apos;s happening across your sales team.</p></div>
-        <button onClick={() => openForm({ kind: "lead" })} className="flex h-10 items-center gap-2 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#10523a]"><Plus size={16} />Add new lead</button>
+        {canAddLead && <button onClick={() => openForm({ kind: "lead" })} className="flex h-10 items-center gap-2 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#10523a]"><Plus size={16} />Add new lead</button>}
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <MetricCard label="New leads" value={String(analytics.newLeadsToday)} delta="Today" icon={Users} tone="bg-[#e7f3ed] text-[#176b4d]" />
@@ -749,7 +750,7 @@ function Dashboard({ identity, leads, followups, analytics, setActive, openTool,
           <section className="rounded-2xl border border-[#e6eae5] bg-white p-4 md:p-5">
             <SectionTitle title="Quick actions" />
             <div className="mt-4 grid grid-cols-4 gap-2.5">
-              <QuickAction label="Add lead" icon={Plus} onClick={() => openForm({ kind: "lead" })} />
+              {canAddLead && <QuickAction label="Add lead" icon={Plus} onClick={() => openForm({ kind: "lead" })} />}
               <QuickAction label="Call lead" icon={Phone} onClick={() => setSelectedLead(leads[0])} />
               <QuickAction label="Share property" icon={Share2} onClick={() => setActive("properties")} />
               <QuickAction label="Check in" icon={MapPin} onClick={() => openTool("attendance")} />
@@ -822,21 +823,60 @@ function PageHeading({ eyebrow, title, copy, action, onAction }: { eyebrow: stri
   return <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8d9a95]">{eyebrow}</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.055em] text-[#1e2d28]">{title}</h2><p className="mt-1 text-sm text-[#74817c]">{copy}</p></div>{action && <button onClick={onAction} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white sm:h-10 sm:w-auto"><Plus size={16} />{action}</button>}</div>;
 }
 
-function LeadsPage({ search, setSearch, leadFilter, setLeadFilter, leads, setSelectedLead, openForm }: { search: string; setSearch: (value: string) => void; leadFilter: string; setLeadFilter: (value: string) => void; leads: Lead[]; setSelectedLead: (lead: Lead) => void; openForm: (state: FormDialogState) => void }) {
+function LeadsPage({ search, setSearch, leadFilter, setLeadFilter, leads, canAddLead, setSelectedLead, openForm }: { search: string; setSearch: (value: string) => void; leadFilter: string; setLeadFilter: (value: string) => void; leads: Lead[]; canAddLead: boolean; setSelectedLead: (lead: Lead) => void; openForm: (state: FormDialogState) => void }) {
+  const [showFilters, setShowFilters] = useState(false);
+  const [status, setStatus] = useState("All");
+  const [source, setSource] = useState("All");
+  const [agent, setAgent] = useState("All");
+  const [temperature, setTemperature] = useState("All");
+  const [date, setDate] = useState("All");
+  const sources = [...new Set(leads.map((lead) => lead.source))];
+  const agents = [...new Set(leads.map((lead) => lead.agent))];
+  const activeFilterCount = [status, source, agent, temperature, date].filter((value) => value !== "All").length;
+  const visibleLeads = leads.filter((lead) => (
+    (status === "All" || lead.status === status)
+    && (source === "All" || lead.source === source)
+    && (agent === "All" || lead.agent === agent)
+    && (temperature === "All" || lead.temperature === temperature)
+    && (date === "All" || isLeadCreatedToday(lead))
+  ));
+  const clearFilters = () => {
+    setStatus("All");
+    setSource("All");
+    setAgent("All");
+    setTemperature("All");
+    setDate("All");
+  };
+
   return <div>
-    <PageHeading eyebrow="Sales workspace" title="Leads" copy="Track, qualify and convert every property enquiry." action="Add lead" onAction={() => openForm({ kind: "lead" })} />
+    <PageHeading eyebrow="Sales workspace" title="Leads" copy="Track, qualify and convert every property enquiry." action={canAddLead ? "Add lead" : undefined} onAction={canAddLead ? () => openForm({ kind: "lead" }) : undefined} />
     <div className="rounded-2xl border border-[#e6eae5] bg-white p-3 md:p-4">
       <div className="flex flex-wrap gap-2 border-b border-[#edf0ec] pb-3">
         <label className="flex h-9 min-w-[210px] flex-1 items-center gap-2 rounded-lg border border-[#e1e6e1] px-3 text-[#89948f]"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full bg-transparent text-xs outline-none" placeholder="Search leads, source, location..." /></label>
-        <button className="flex h-9 items-center gap-2 rounded-lg border border-[#e1e6e1] px-3 text-xs font-semibold text-[#65736e]"><Filter size={14} /> Filters</button>
+        <button aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)} className="flex h-9 items-center gap-2 rounded-lg border border-[#e1e6e1] px-3 text-xs font-semibold text-[#65736e]"><Filter size={14} /> Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}</button>
       </div>
+      {showFilters && <div className="mt-3 grid gap-2 rounded-xl bg-[#f8faf7] p-3 sm:grid-cols-2 lg:grid-cols-5"><LeadFilterSelect label="Status" value={status} setValue={setStatus} options={["All", "New", "Contacted", "Interested", "Site Visit", "Negotiation", "Won", "Lost", "Not Responding"]} /><LeadFilterSelect label="Source" value={source} setValue={setSource} options={["All", ...sources]} /><LeadFilterSelect label="Assigned agent" value={agent} setValue={setAgent} options={["All", ...agents]} /><LeadFilterSelect label="Temperature" value={temperature} setValue={setTemperature} options={["All", "Hot", "Warm", "Cold"]} /><LeadFilterSelect label="Created" value={date} setValue={setDate} options={["All", "Today"]} />{activeFilterCount > 0 && <button onClick={clearFilters} className="min-h-9 rounded-lg border border-[#dfe5df] bg-white px-3 text-xs font-bold text-[#176b4d] lg:col-span-5">Clear filters</button>}</div>}
       <div className="scrollbar-none flex gap-2 overflow-x-auto py-3">{["All", "Hot", "Warm", "New", "Interested", "Negotiation"].map((filter) => <button key={filter} onClick={() => setLeadFilter(filter)} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-bold ${leadFilter === filter ? "bg-[#176b4d] text-white" : "bg-[#f2f4f1] text-[#718079]"}`}>{filter}</button>)}</div>
       <div className="divide-y divide-[#edf0ec]">
-        {leads.map((lead, index) => <LeadRow key={lead.id} lead={lead} index={index} setSelectedLead={setSelectedLead} />)}
+        {visibleLeads.map((lead, index) => <LeadRow key={lead.id} lead={lead} index={index} setSelectedLead={setSelectedLead} />)}
       </div>
-      {!leads.length && <div className="py-14 text-center"><Search className="mx-auto text-[#a3afaa]" size={22} /><p className="mt-3 text-sm font-bold">No matching leads</p><p className="mt-1 text-xs text-[#89958f]">Try a different search or filter.</p></div>}
+      {!visibleLeads.length && <div className="py-14 text-center"><Search className="mx-auto text-[#a3afaa]" size={22} /><p className="mt-3 text-sm font-bold">No matching leads</p><p className="mt-1 text-xs text-[#89958f]">Try a different search or filter.</p></div>}
     </div>
   </div>;
+}
+
+function LeadFilterSelect({ label, value, setValue, options }: { label: string; value: string; setValue: (value: string) => void; options: string[] }) {
+  return <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#9aa5a1]">{label}<select value={value} onChange={(event) => setValue(event.target.value)} className={drawerInputClass}>{options.map((option) => <option key={option}>{option}</option>)}</select></label>;
+}
+
+function isLeadCreatedToday(lead: Lead) {
+  if (!lead.createdAt) {
+    return /ago|just now|today/i.test(lead.created);
+  }
+
+  const created = new Date(lead.createdAt);
+  const today = new Date();
+  return created.getFullYear() === today.getFullYear() && created.getMonth() === today.getMonth() && created.getDate() === today.getDate();
 }
 
 function PropertiesPage({ properties, leads, canManageInventory, openForm, setSelectedProperty }: { properties: Property[]; leads: Lead[]; canManageInventory: boolean; openForm: (state: FormDialogState) => void; setSelectedProperty: (property: Property) => void }) {
@@ -1051,6 +1091,7 @@ function LeadDrawer({ identity, lead, properties: unorderedProperties, members, 
   const [timelineToken, setTimelineToken] = useState(0);
   const [draft, setDraft] = useState(() => getLeadDraft(lead, members));
   const properties = getRecommendedProperties(lead, unorderedProperties);
+  const canReassignLead = identity.isDemo || ["admin", "sales_manager"].includes(identity.role);
 
   useEffect(() => {
     let active = true;
@@ -1090,7 +1131,7 @@ function LeadDrawer({ identity, lead, properties: unorderedProperties, members, 
     <div className="mt-6 grid grid-cols-3 gap-2"><DrawerAction icon={Phone} label="Call now" onClick={() => void callLead(lead).then(refreshTimeline)} /><DrawerAction icon={MessageCircle} label="WhatsApp" onClick={() => notify(`WhatsApp follow-up prepared for ${lead.name}`)} /><DrawerAction icon={Share2} label="Recommended" onClick={() => setShowProperties(!showProperties)} /></div>
     {showProperties && <div className="mt-4 rounded-xl border border-[#dfe7e2] bg-[#fbfcfa] p-3"><div className="flex items-center justify-between"><p className="text-xs font-bold text-[#40514b]">Select a property to share</p><Badge tone="green">{properties.length} listings</Badge></div><div className="mt-2 max-h-72 space-y-2 overflow-y-auto">{properties.map((property) => <div key={property.id} className="rounded-xl border border-[#e6eae5] bg-white p-3"><div className="flex gap-3"><div className="h-12 w-14 shrink-0 rounded-lg bg-cover bg-center" style={{ backgroundImage: `url(${property.image})` }} /><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#34443e]">{property.title}</p><p className="mt-1 truncate text-[10px] text-[#85918d]">{property.location} · {property.price}</p></div></div><div className="mt-3 grid grid-cols-3 gap-1.5"><ShareChannelButton label="WhatsApp" icon={MessageCircle} onClick={() => void shareProperty(lead, property, "whatsapp")} /><ShareChannelButton label="SMS" icon={Phone} onClick={() => void shareProperty(lead, property, "sms")} /><ShareChannelButton label="Email" icon={Mail} onClick={() => void shareProperty(lead, property, "email")} /></div></div>)}</div></div>}
     <div className="mt-6 grid grid-cols-2 gap-4 rounded-xl bg-[#f7f8f5] p-4 text-xs"><Detail label="Phone" value={lead.phone} /><Detail label="Status" value={lead.status} /><Detail label="Budget" value={lead.budget} /><Detail label="Property" value={lead.propertyType} /><Detail label="Location" value={lead.location} /><Detail label="Assigned to" value={lead.agent} /></div>
-    <div className="mt-6"><SectionTitle title="Qualification" /><div className="mt-3 grid gap-3 rounded-xl border border-[#e6eae5] p-3 sm:grid-cols-2"><DrawerField label="Status"><select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as LeadStatus })} className={drawerInputClass}>{["New", "Contacted", "Interested", "Site Visit", "Negotiation", "Won", "Lost", "Not Responding"].map((status) => <option key={status}>{status}</option>)}</select></DrawerField><DrawerField label="Temperature"><select value={draft.temperature} onChange={(event) => setDraft({ ...draft, temperature: event.target.value as Lead["temperature"] })} className={drawerInputClass}>{["Hot", "Warm", "Cold"].map((temperature) => <option key={temperature}>{temperature}</option>)}</select></DrawerField><DrawerField label="Assigned agent"><select value={draft.assignedAgentId} onChange={(event) => setDraft({ ...draft, assignedAgentId: event.target.value })} className={drawerInputClass}>{members.filter((member) => ["Sales Manager", "Sales Agent"].includes(member.role)).map((member) => <option key={member.id} value={member.profileId ?? member.id}>{member.name}</option>)}</select></DrawerField><button onClick={() => setDraft({ ...draft, temperature: "Hot" })} className="mt-5 h-10 rounded-lg bg-[#fbebea] px-3 text-xs font-bold text-[#b34b49]">Mark as hot lead</button><label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#9aa5a1] sm:col-span-2">Notes<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} className={`${drawerInputClass} min-h-20 py-2`} /></label><button onClick={() => void saveLead()} className="h-10 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white sm:col-span-2">Save lead changes</button></div></div>
+    <div className="mt-6"><SectionTitle title="Qualification" /><div className="mt-3 grid gap-3 rounded-xl border border-[#e6eae5] p-3 sm:grid-cols-2"><DrawerField label="Status"><select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as LeadStatus })} className={drawerInputClass}>{["New", "Contacted", "Interested", "Site Visit", "Negotiation", "Won", "Lost", "Not Responding"].map((status) => <option key={status}>{status}</option>)}</select></DrawerField><DrawerField label="Temperature"><select value={draft.temperature} onChange={(event) => setDraft({ ...draft, temperature: event.target.value as Lead["temperature"] })} className={drawerInputClass}>{["Hot", "Warm", "Cold"].map((temperature) => <option key={temperature}>{temperature}</option>)}</select></DrawerField><DrawerField label="Assigned agent"><select disabled={!canReassignLead} value={draft.assignedAgentId} onChange={(event) => setDraft({ ...draft, assignedAgentId: event.target.value })} className={drawerInputClass}>{members.filter((member) => ["Sales Manager", "Sales Agent"].includes(member.role)).map((member) => <option key={member.id} value={member.profileId ?? member.id}>{member.name}</option>)}</select></DrawerField><button onClick={() => setDraft({ ...draft, temperature: "Hot" })} className="mt-5 h-10 rounded-lg bg-[#fbebea] px-3 text-xs font-bold text-[#b34b49]">Mark as hot lead</button><label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#9aa5a1] sm:col-span-2">Notes<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} className={`${drawerInputClass} min-h-20 py-2`} /></label><button onClick={() => void saveLead()} className="h-10 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white sm:col-span-2">Save lead changes</button></div></div>
     <div className="mt-6"><SectionTitle title="Next follow-up" /><div className="mt-3 flex items-center gap-3 rounded-xl border border-[#eadfc7] bg-[#fffaf0] p-3"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#faedcd] text-[#a66b16]"><CalendarClock size={16} /></div><div><p className="text-xs font-bold">{lead.nextFollowup}</p><p className="mt-1 text-[10px] text-[#8f7b5e]">Call and discuss shortlisted options</p></div></div></div>
     <div className="mt-6"><SectionTitle title="Activity timeline" />{timelineLoading ? <p className="mt-4 text-xs text-[#8a9691]">Loading timeline...</p> : <div className="mt-4 space-y-4">{timeline.map((item) => <Timeline key={item.id} item={item} />)}</div>}{!timelineLoading && !timeline.length && <p className="mt-4 text-xs text-[#8a9691]">No lead activity recorded yet.</p>}</div>
   </aside></div>;

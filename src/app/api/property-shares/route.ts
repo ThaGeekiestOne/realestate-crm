@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { ProfileRole } from "@/lib/auth-types";
+import { canAccessLead } from "@/lib/lead-access";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import { shareProperty } from "@/services/property-share-service";
 
@@ -43,9 +45,9 @@ export async function POST(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, organization_id")
+    .select("id, organization_id, role")
     .eq("id", authData.user.id)
-    .single();
+    .single<{ id: string; organization_id: string; role: ProfileRole }>();
 
   if (profileError || !profile) {
     return NextResponse.json({ error: "Workspace profile not found" }, { status: 403 });
@@ -54,7 +56,7 @@ export async function POST(request: Request) {
   const [{ data: lead, error: leadError }, { data: property, error: propertyError }] = await Promise.all([
     supabase
       .from("leads")
-      .select("id, full_name, phone, email")
+      .select("id, full_name, phone, email, assigned_agent_id")
       .eq("id", parsed.data.leadId)
       .eq("organization_id", profile.organization_id)
       .single(),
@@ -68,6 +70,10 @@ export async function POST(request: Request) {
 
   if (leadError || !lead || propertyError || !property) {
     return NextResponse.json({ error: "Lead or property not found in your organization" }, { status: 404 });
+  }
+
+  if (!canAccessLead(profile.role, profile.id, lead.assigned_agent_id)) {
+    return NextResponse.json({ error: "Lead not found or not assigned to you" }, { status: 404 });
   }
 
   const recipient = parsed.data.channel === "email" ? lead.email : lead.phone;

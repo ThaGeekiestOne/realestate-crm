@@ -40,6 +40,7 @@ export interface Lead {
   agent: string;
   nextFollowup: string;
   created: string;
+  createdAt?: string;
   note: string;
 }
 

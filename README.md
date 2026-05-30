@@ -64,6 +64,8 @@ The follow-up queue supports reusable message templates, one-click WhatsApp, SMS
 
 The lead drawer supports qualification changes, hot-lead marking, note updates, sales-agent reassignment, and tenant-scoped activity history. Its **Call now** action uses the protected `/api/leads/actions` route to create a call log before starting the Twilio bridge adapter. The same route loads calls, messages, follow-ups, property shares, and activity records into the lead timeline. Demo mode simulates the call and keeps lead edits in browser storage.
 
+The lead list supports search plus status, source, assigned-agent, temperature, and created-today filters. Live Supabase reads are role-aware: admins and sales managers can operate across the organization, while sales agents can read and update only their assigned leads and follow-up queue rows. Protected lead actions and property sharing apply the same assigned-lead rule server-side.
+
 ## Employee Attendance
 
 The attendance workspace captures browser GPS coordinates for check-in and check-out, accepts optional field notes and private selfie evidence, shows personal attendance history, and summarizes the current organization team. The protected `/api/attendance` route validates the signed-in workspace before reading or updating tenant-scoped attendance rows and logs attendance activity events. The private `attendance-media` bucket restricts uploads to the signed-in user's organization folder. Demo mode stores the same workflow locally in browser storage.

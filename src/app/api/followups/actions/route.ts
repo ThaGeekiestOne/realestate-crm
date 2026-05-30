@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { ProfileRole } from "@/lib/auth-types";
+import { canAccessLead } from "@/lib/lead-access";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import { followupTemplates } from "@/lib/followup-templates";
 import { sendFollowup } from "@/services/followup-service";
@@ -56,9 +58,9 @@ export async function POST(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, organization_id")
+    .select("id, organization_id, role")
     .eq("id", authData.user.id)
-    .single();
+    .single<{ id: string; organization_id: string; role: ProfileRole }>();
 
   if (profileError || !profile) {
     return NextResponse.json({ error: "Workspace profile not found" }, { status: 403 });
@@ -66,7 +68,7 @@ export async function POST(request: Request) {
 
   const { data: followup, error: followupError } = await supabase
     .from("followups")
-    .select("id, lead_id, leads!inner(id, full_name, phone, email, preferred_location)")
+    .select("id, lead_id, leads!inner(id, full_name, phone, email, preferred_location, assigned_agent_id)")
     .eq("id", parsed.data.followupId)
     .eq("organization_id", profile.organization_id)
     .is("completed_at", null)
@@ -77,6 +79,10 @@ export async function POST(request: Request) {
   }
 
   const lead = Array.isArray(followup.leads) ? followup.leads[0] : followup.leads;
+
+  if (!canAccessLead(profile.role, profile.id, lead.assigned_agent_id)) {
+    return NextResponse.json({ error: "Follow-up not found or not assigned to you" }, { status: 404 });
+  }
 
   if (parsed.data.action === "snooze") {
     const dueAt = new Date(Date.now() + parsed.data.minutes * 60_000).toISOString();

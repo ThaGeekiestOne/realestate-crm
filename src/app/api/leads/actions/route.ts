@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { ProfileRole } from "@/lib/auth-types";
+import { canAccessLead, canManageLeadAssignment } from "@/lib/lead-access";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import type { LeadTimelineItem } from "@/lib/types";
 import { triggerBridgeCall } from "@/services/call-service";
@@ -43,9 +45,9 @@ async function getRequestContext(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, organization_id")
+    .select("id, organization_id, role")
     .eq("id", authData.user.id)
-    .single<{ id: string; organization_id: string }>();
+    .single<{ id: string; organization_id: string; role: ProfileRole }>();
 
   return profileError || !profile ? null : { supabase, profile };
 }
@@ -62,8 +64,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "A valid leadId is required" }, { status: 400 });
   }
 
-  if (!await hasOrganizationLead(context.supabase, context.profile.organization_id, leadId)) {
-    return NextResponse.json({ error: "Lead not found in your organization" }, { status: 404 });
+  if (!await hasAccessibleOrganizationLead(context.supabase, context.profile, leadId)) {
+    return NextResponse.json({ error: "Lead not found or not assigned to you" }, { status: 404 });
   }
 
   const [activities, calls, messages, followups, shares] = await Promise.all([
@@ -147,8 +149,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Lead not found in your organization" }, { status: 404 });
   }
 
+  if (!canAccessLead(context.profile.role, context.profile.id, lead.assigned_agent_id)) {
+    return NextResponse.json({ error: "Lead not found or not assigned to you" }, { status: 404 });
+  }
+
   if (parsed.data.action === "call") {
     return startBridgeCall(context, lead);
+  }
+
+  if (parsed.data.assignedAgentId && parsed.data.assignedAgentId !== lead.assigned_agent_id && !canManageLeadAssignment(context.profile.role)) {
+    return NextResponse.json({ error: "Only admins and sales managers can reassign leads" }, { status: 403 });
   }
 
   let agentName = "Unassigned";
@@ -268,9 +278,13 @@ async function startBridgeCall(
   }
 }
 
-async function hasOrganizationLead(supabase: NonNullable<ReturnType<typeof getSupabaseAdminClient>>, organizationId: string, leadId: string) {
-  const { data } = await supabase.from("leads").select("id").eq("id", leadId).eq("organization_id", organizationId).maybeSingle();
-  return Boolean(data);
+async function hasAccessibleOrganizationLead(
+  supabase: NonNullable<ReturnType<typeof getSupabaseAdminClient>>,
+  profile: { id: string; organization_id: string; role: ProfileRole },
+  leadId: string,
+) {
+  const { data } = await supabase.from("leads").select("assigned_agent_id").eq("id", leadId).eq("organization_id", profile.organization_id).maybeSingle<{ assigned_agent_id: string | null }>();
+  return Boolean(data && canAccessLead(profile.role, profile.id, data.assigned_agent_id));
 }
 
 async function readJson(request: Request) {
