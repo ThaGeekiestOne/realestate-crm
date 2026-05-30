@@ -27,9 +27,19 @@ interface PropertyRecord {
   location: string;
   property_type: string | null;
   price: number | null;
+  description: string | null;
+  address: string | null;
   size_sqft: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  floor: string | null;
+  furnishing_status: string | null;
   availability_status: Property["status"];
   units_available: number;
+  owner_developer: string | null;
+  amenities: string[];
+  notes: string | null;
+  internal_tags: string[];
   property_images?: { storage_path: string }[] | null;
 }
 
@@ -65,6 +75,17 @@ export interface CreateOrganizationPropertyInput {
   price: string;
   details: string;
   status: Property["status"];
+  address?: string;
+  sizeSqft?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  floor?: string;
+  furnishingStatus?: string;
+  unitsAvailable?: number;
+  ownerDeveloper?: string;
+  amenities?: string[];
+  notes?: string;
+  internalTags?: string[];
 }
 
 export interface CreateOrganizationFollowupInput {
@@ -241,6 +262,17 @@ function mapProperty(record: PropertyRecord): Property {
     image: images[0] ?? "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=900&q=80",
     images,
     matches: 0,
+    address: record.address ?? undefined,
+    sizeSqft: record.size_sqft ?? undefined,
+    bedrooms: record.bedrooms ?? undefined,
+    bathrooms: record.bathrooms ?? undefined,
+    floor: record.floor ?? undefined,
+    furnishingStatus: record.furnishing_status ?? undefined,
+    unitsAvailable: record.units_available,
+    ownerDeveloper: record.owner_developer ?? undefined,
+    amenities: record.amenities,
+    notes: record.notes ?? record.description ?? undefined,
+    internalTags: record.internal_tags,
   };
 }
 
@@ -279,7 +311,7 @@ export async function getOrganizationWorkspaceSnapshot(identity: WorkspaceIdenti
       .order("created_at", { ascending: false }),
     supabase
       .from("properties")
-      .select("id, title, location, property_type, price, size_sqft, availability_status, units_available, property_images(storage_path)")
+      .select("id, title, location, property_type, price, description, address, size_sqft, bedrooms, bathrooms, floor, furnishing_status, availability_status, units_available, owner_developer, amenities, notes, internal_tags, property_images(storage_path)")
       .eq("organization_id", identity.organizationId)
       .order("created_at", { ascending: false }),
     supabase
@@ -357,8 +389,19 @@ export async function createOrganizationProperty(identity: WorkspaceIdentity, in
       price: parseMoney(input.price),
       availability_status: input.status,
       description: input.details,
+      address: input.address || null,
+      size_sqft: input.sizeSqft ?? null,
+      bedrooms: input.bedrooms ?? null,
+      bathrooms: input.bathrooms ?? null,
+      floor: input.floor || null,
+      furnishing_status: input.furnishingStatus || null,
+      units_available: input.unitsAvailable ?? 1,
+      owner_developer: input.ownerDeveloper || null,
+      amenities: input.amenities ?? [],
+      notes: input.notes || null,
+      internal_tags: input.internalTags ?? [],
     })
-    .select("id, title, location, property_type, price, size_sqft, availability_status, units_available")
+    .select("id, title, location, property_type, price, description, address, size_sqft, bedrooms, bathrooms, floor, furnishing_status, availability_status, units_available, owner_developer, amenities, notes, internal_tags")
     .single<PropertyRecord>();
 
   if (error) {

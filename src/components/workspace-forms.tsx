@@ -85,6 +85,15 @@ export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFol
           price: String(data.get("price")),
           details: String(data.get("details")),
           status: String(data.get("status")) as Property["status"],
+          address: String(data.get("address")),
+          sizeSqft: getOptionalNumber(data, "sizeSqft"),
+          bedrooms: getOptionalNumber(data, "bedrooms"),
+          bathrooms: getOptionalNumber(data, "bathrooms"),
+          unitsAvailable: getOptionalNumber(data, "unitsAvailable") ?? 1,
+          ownerDeveloper: String(data.get("ownerDeveloper")),
+          amenities: getList(data, "amenities"),
+          notes: String(data.get("notes")),
+          internalTags: getList(data, "internalTags"),
           image: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=900&q=80",
           matches: 0,
         }, data.getAll("images").filter((value): value is File => value instanceof File && value.size > 0));
@@ -95,6 +104,15 @@ export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFol
         <Field label="Price"><input required name="price" className={inputClass} placeholder="₹1.25 Cr" /></Field>
         <Field label="Details"><input required name="details" className={inputClass} placeholder="1,850 sq.ft. · Ready to move" /></Field>
         <Field label="Availability"><select name="status" className={inputClass}>{["Available", "Hold", "Sold", "Rented"].map((value) => <option key={value}>{value}</option>)}</select></Field>
+        <Field label="Address"><input name="address" className={inputClass} placeholder="Tower and street address" /></Field>
+        <Field label="Owner / developer"><input name="ownerDeveloper" className={inputClass} placeholder="Developer or owner name" /></Field>
+        <Field label="Size (sq.ft.)"><input name="sizeSqft" type="number" min="0" className={inputClass} placeholder="1850" /></Field>
+        <Field label="Units available"><input name="unitsAvailable" type="number" min="0" defaultValue="1" className={inputClass} /></Field>
+        <Field label="Bedrooms"><input name="bedrooms" type="number" min="0" className={inputClass} placeholder="3" /></Field>
+        <Field label="Bathrooms"><input name="bathrooms" type="number" min="0" className={inputClass} placeholder="3" /></Field>
+        <Field label="Amenities"><input name="amenities" className={inputClass} placeholder="Clubhouse, pool, security" /></Field>
+        <Field label="Internal tags"><input name="internalTags" className={inputClass} placeholder="Ready to move, premium" /></Field>
+        <label className="text-[11px] font-bold text-[#65736e] sm:col-span-2">Internal notes<textarea name="notes" className={textareaClass} placeholder="Inventory notes for the sales team..." /></label>
         <label className="text-[11px] font-bold text-[#65736e] sm:col-span-2">Property photos<input name="images" type="file" accept="image/*" multiple className="mt-1.5 block w-full rounded-lg border border-[#dfe5df] bg-white px-3 py-2 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-[#e7f3ed] file:px-3 file:py-1.5 file:text-[11px] file:font-bold file:text-[#176b4d]" /><span className="mt-1 block text-[10px] font-medium text-[#98a39f]">Uploads are stored in your organization&apos;s Supabase Storage folder when connected.</span></label>
         <FormActions close={close} />
       </form>
@@ -164,4 +182,16 @@ export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFol
 
 function FormActions({ close }: { close: () => void }) {
   return <div className="mt-2 flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={close} className="rounded-lg border border-[#dfe5df] px-4 py-2.5 text-xs font-bold text-[#65736e]">Cancel</button><button type="submit" className="rounded-lg bg-[#176b4d] px-4 py-2.5 text-xs font-bold text-white">Save record</button></div>;
+}
+
+function getOptionalNumber(data: FormData, field: string) {
+  const value = String(data.get(field)).trim();
+  return value ? Number(value) : undefined;
+}
+
+function getList(data: FormData, field: string) {
+  return String(data.get(field))
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
 }

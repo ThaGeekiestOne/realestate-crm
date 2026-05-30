@@ -54,6 +54,17 @@ export interface Property {
   image: string;
   images?: string[];
   matches: number;
+  address?: string;
+  sizeSqft?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  floor?: string;
+  furnishingStatus?: string;
+  unitsAvailable?: number;
+  ownerDeveloper?: string;
+  amenities?: string[];
+  notes?: string;
+  internalTags?: string[];
 }
 
 export interface Followup {

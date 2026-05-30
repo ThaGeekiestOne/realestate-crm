@@ -52,6 +52,10 @@ The `property-media` Supabase Storage bucket is created by migration and allows 
 
 From a lead drawer, choose **Property**, select a listing, and send a public tokenized share page via WhatsApp, SMS, or email. The protected `/api/property-shares` route validates the session, enforces organization ownership for the lead and property, dispatches through Twilio or Resend, and records the message and activity timeline event. Dry-run modes generate share records and provider IDs without sending external messages.
 
+## Inventory Operations
+
+The inventory workspace supports structured property creation, search, status/type/location filters, property detail drawers, photo galleries, availability updates, and protected deletion with Storage cleanup. Admins and sales managers can update inventory through `/api/properties/actions`; other organization members retain read access. Inventory cards calculate matching lead counts, and the lead drawer ranks shareable properties by type, location, and budget fit.
+
 ## One-Click Follow-Ups
 
 The follow-up queue supports reusable message templates, one-click WhatsApp, SMS, and email dispatch, call reminders, 30-minute snoozes, and completion. The protected `/api/followups/actions` route validates the signed-in workspace, sends through the server-side provider adapters, and records message and activity audit entries. Dry-run mode keeps the full workflow usable without provider credentials.
@@ -83,6 +87,7 @@ The Team workspace loads organization members and assigned-lead counts from the 
 - `src/services/`: organization data reads plus provider-independent call, message, email, property-share, attendance, social-publish, and lead-assignment adapters.
 - `src/app/api/webhooks/leads/`: public lead intake route.
 - `src/app/api/leads/actions/`: protected lead qualification, timeline, and bridge-call route.
+- `src/app/api/properties/actions/`: protected inventory update and deletion route.
 - `src/app/api/team-members/`: protected admin team invitation and role-management route.
 - `supabase/migrations/`: organization-aware schema and Row Level Security starter.
 

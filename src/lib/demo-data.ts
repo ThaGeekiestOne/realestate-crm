@@ -9,12 +9,23 @@ export const leads: Lead[] = [
   { id: "LD-1043", name: "Naina Gupta", initials: "NG", phone: "+91 98109 38812", source: "Housing", propertyType: "Apartment", budget: "₹70–90 L", location: "Sector 83", status: "Contacted", temperature: "Cold", agent: "Kabir Singh", nextFollowup: "Tomorrow, 12:30 PM", created: "3 hrs ago", note: "First-time buyer, exploring finance options." },
 ];
 
-export const properties: Property[] = [
+export const properties: Property[] = ([
   { id: "PR-209", title: "Emaar Palm Heights", location: "Sector 77, Gurgaon", type: "3 BHK Apartment", price: "₹1.42 Cr", details: "2,025 sq.ft. · Ready to move", status: "Available", matches: 14, image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=900&q=80" },
   { id: "PR-208", title: "DLF The Arbour", location: "Sector 63, Gurgaon", type: "4 BHK Apartment", price: "₹6.85 Cr", details: "3,950 sq.ft. · New launch", status: "Available", matches: 8, image: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=900&q=80" },
   { id: "PR-207", title: "M3M Antalya Hills", location: "Sector 79, Gurgaon", type: "3 BHK Builder Floor", price: "₹1.68 Cr", details: "1,534 sq.ft. · Possession 2027", status: "Hold", matches: 11, image: "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?auto=format&fit=crop&w=900&q=80" },
   { id: "PR-206", title: "Godrej Meridien", location: "Sector 106, Gurgaon", type: "3 BHK Apartment", price: "₹2.35 Cr", details: "1,855 sq.ft. · Ready to move", status: "Available", matches: 17, image: "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=900&q=80" },
-];
+] satisfies Property[]).map((property, index) => ({
+  ...property,
+  address: `${property.location}, Haryana`,
+  sizeSqft: [2025, 3950, 1534, 1855][index],
+  bedrooms: [3, 4, 3, 3][index],
+  bathrooms: [3, 5, 3, 3][index],
+  unitsAvailable: [4, 7, 2, 5][index],
+  ownerDeveloper: ["Emaar", "DLF", "M3M", "Godrej Properties"][index],
+  amenities: ["Clubhouse", "Security", "Parking"],
+  notes: "Sales team inventory record. Verify availability before confirming a visit.",
+  internalTags: ["verified", "share-ready"],
+}));
 
 export const followups: Followup[] = [
   { id: "FU-31", lead: "Aarav Mehta", initials: "AM", purpose: "Discuss shortlisted 3 BHK options", time: "11:30 AM", channel: "Call", temperature: "Hot" },
