@@ -261,6 +261,7 @@ async function startBridgeCall(
 
   try {
     const call = await triggerBridgeCall({
+      organizationId: context.profile.organization_id,
       callId: callLog.id,
       leadId: lead.id,
       leadName: lead.full_name,

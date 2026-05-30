@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getPublicAppUrl, isTwilioDryRun } from "@/services/call-service";
+import { getPublicAppUrl } from "@/services/call-service";
 
 export async function readTwilioForm(request: Request) {
   const formData = await request.formData();
@@ -9,7 +9,7 @@ export async function readTwilioForm(request: Request) {
 }
 
 export function isValidTwilioRequest(request: Request, params: Record<string, string>) {
-  if (isTwilioDryRun() || process.env.TWILIO_VALIDATE_SIGNATURES === "false") {
+  if (process.env.TWILIO_VALIDATE_SIGNATURES === "false") {
     return true;
   }
 

@@ -157,6 +157,7 @@ export async function handleAgentUnavailable(callId: string) {
 
   try {
     const call = await triggerBridgeCall({
+      organizationId: context.organizationId,
       callId,
       leadId: context.leadId,
       leadName: context.leadName,

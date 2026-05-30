@@ -62,6 +62,7 @@ import type {
   ModuleKey,
   Property,
   SocialPost,
+  WorkspaceSettings,
   WorkspaceTool,
   WorkspaceNotification,
 } from "@/lib/types";
@@ -117,6 +118,11 @@ import {
   getOrganizationNotifications,
   markOrganizationNotificationRead,
 } from "@/services/notification-client-service";
+import {
+  getOrganizationSettings,
+  updateOrganizationIntegrationSettings,
+  updateOrganizationWorkspaceSettings,
+} from "@/services/workspace-settings-client-service";
 
 const nav = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -137,6 +143,23 @@ const notificationIcons = {
   social_post_due: Megaphone,
   general: Bell,
 } satisfies Record<WorkspaceNotification["type"], typeof Bell>;
+const defaultIntegrationSettings: IntegrationSettings = {
+  twilioPhone: "",
+  whatsappSender: "",
+  emailSender: "",
+  socialPublishWebhookUrl: "",
+  callDryRun: true,
+  messagingDryRun: true,
+  emailDryRun: true,
+  socialPublishDryRun: true,
+  secretStatus: {
+    twilioAccountSid: false,
+    twilioAuthToken: false,
+    resendApiKey: false,
+    webhookSecret: false,
+    openAiApiKey: false,
+  },
+};
 
 function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "green" | "amber" | "red" | "neutral" | "purple" }) {
   const styles = {
@@ -251,14 +274,13 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const [remoteAnalytics, setRemoteAnalytics] = useState<AnalyticsSnapshot>();
   const [demoMembers, setDemoMembers] = usePersistentState("estateflow.members", initialTeamMembers);
   const [remoteMembers, setRemoteMembers] = useState<typeof initialTeamMembers>([]);
-  const [settings, setSettings] = usePersistentState<IntegrationSettings>("estateflow.integrations", {
-    twilioSid: "",
-    twilioPhone: "",
-    whatsappSender: "",
-    emailSender: "",
-    webhookSecret: "",
-    dryRun: true,
+  const [demoIntegrationSettings, setDemoIntegrationSettings] = usePersistentState<IntegrationSettings>("estateflow.integrations", defaultIntegrationSettings);
+  const [demoWorkspaceSettings, setDemoWorkspaceSettings] = usePersistentState<WorkspaceSettings>("estateflow.workspace-settings", {
+    organizationName: identity.organizationName,
+    assignmentMode: "round_robin",
   });
+  const [remoteIntegrationSettings, setRemoteIntegrationSettings] = useState<IntegrationSettings>(demoIntegrationSettings);
+  const [remoteWorkspaceSettings, setRemoteWorkspaceSettings] = useState<WorkspaceSettings>(demoWorkspaceSettings);
   const crmLeads = identity.isDemo ? demoLeads : remoteLeads;
   const crmProperties = identity.isDemo ? demoProperties : remoteProperties;
   const crmFollowups = identity.isDemo ? demoFollowups : remoteFollowups;
@@ -270,6 +292,8 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const attendanceHistory = identity.isDemo ? demoAttendanceHistory : remoteAttendanceHistory;
   const socialPosts = identity.isDemo ? demoSocialPosts : remoteSocialPosts;
   const members = identity.isDemo ? demoMembers : remoteMembers;
+  const settings = normalizeIntegrationSettings(identity.isDemo ? demoIntegrationSettings : remoteIntegrationSettings);
+  const workspaceSettings = identity.isDemo ? demoWorkspaceSettings : remoteWorkspaceSettings;
   const demoAnalytics = useMemo(() => getDemoAnalyticsSnapshot({
     leads: crmLeads,
     properties: crmProperties,
@@ -287,13 +311,14 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
 
     const loadWorkspace = async () => {
       try {
-        const [snapshot, attendanceSnapshot, socialSnapshot, analyticsSnapshot, teamSnapshot, notificationSnapshot] = await Promise.all([
+        const [snapshot, attendanceSnapshot, socialSnapshot, analyticsSnapshot, teamSnapshot, notificationSnapshot, settingsSnapshot] = await Promise.all([
           getOrganizationWorkspaceSnapshot(identity),
           getOrganizationAttendance(identity),
           getOrganizationSocialPosts(identity),
           getOrganizationAnalyticsSnapshot(identity),
           getOrganizationTeamMembers(identity),
           getOrganizationNotifications(identity),
+          getOrganizationSettings(identity),
         ]);
 
         if (active) {
@@ -306,6 +331,8 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           setRemoteAnalytics(analyticsSnapshot);
           setRemoteMembers(teamSnapshot);
           setRemoteNotifications(notificationSnapshot);
+          setRemoteIntegrationSettings(settingsSnapshot.integrations);
+          setRemoteWorkspaceSettings(settingsSnapshot.workspace);
           setWorkspaceStatus({ status: "ready" });
         }
       } catch (error) {
@@ -338,6 +365,26 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const openTool = (tool: WorkspaceTool) => {
     setActive("more");
     setActiveTool(tool);
+  };
+
+  const saveIntegrationSettings = async (nextSettings: IntegrationSettings) => {
+    if (identity.isDemo) {
+      setDemoIntegrationSettings(nextSettings);
+      return;
+    }
+
+    const snapshot = await updateOrganizationIntegrationSettings(identity, nextSettings);
+    setRemoteIntegrationSettings(snapshot.integrations);
+  };
+
+  const saveWorkspaceSettings = async (nextSettings: WorkspaceSettings) => {
+    if (identity.isDemo) {
+      setDemoWorkspaceSettings(nextSettings);
+      return;
+    }
+
+    const snapshot = await updateOrganizationWorkspaceSettings(identity, nextSettings);
+    setRemoteWorkspaceSettings(snapshot.workspace);
   };
 
   const filteredLeads = useMemo(() => crmLeads.filter((lead) => {
@@ -751,7 +798,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
         <header className="sticky top-0 z-20 flex h-[68px] items-center justify-between border-b border-[#e4e8e3] bg-[#fbfcf9]/95 px-4 backdrop-blur md:px-6 lg:px-8">
           <div className="flex items-center gap-3 lg:hidden"><Logo compact /></div>
           <div className="hidden lg:block">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#92a099]">{identity.organizationName} · {active}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#92a099]">{workspaceSettings.organizationName} · {active}</p>
             <h1 className="text-[17px] font-bold tracking-[-0.02em] text-[#21322c]">{active === "dashboard" ? "Overview" : nav.find((item) => item.key === active)?.label}</h1>
           </div>
           <div className="flex items-center gap-2.5">
@@ -774,8 +821,8 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           {active === "leads" && <LeadsPage search={search} setSearch={setSearch} leadFilter={leadFilter} setLeadFilter={setLeadFilter} leads={filteredLeads} canAddLead={canAddLead} setSelectedLead={setSelectedLead} openForm={setFormDialog} />}
           {active === "properties" && <PropertiesPage properties={crmProperties} leads={crmLeads} canManageInventory={canManageInventory} openForm={setFormDialog} setSelectedProperty={setSelectedProperty} />}
           {active === "followups" && <FollowupsPage followups={crmFollowups} analytics={analytics} completeFollowup={completeFollowup} sendQuickFollowup={sendQuickFollowup} snoozeFollowup={snoozeFollowup} openForm={setFormDialog} notify={notify} />}
-          {active === "more" && !activeTool && <MorePage attendance={attendance} canManageTeam={identity.isDemo || identity.role === "admin"} openTool={openTool} openForm={setFormDialog} />}
-          {active === "more" && activeTool && <WorkspaceToolView tool={activeTool} identity={identity} analytics={analytics} attendance={attendance} attendanceHistory={attendanceHistory} updateAttendance={updateAttendance} socialPosts={socialPosts} publishSocialPost={publishSocialPost} draftSocialPostCaption={draftSocialPostCaption} leads={crmLeads} properties={crmProperties} members={members} updateTeamMember={updateTeamMember} settings={settings} setSettings={setSettings} back={() => setActiveTool(null)} openSocialForm={() => setFormDialog({ kind: "social" })} openMemberForm={() => setFormDialog({ kind: "member" })} notify={notify} />}
+          {active === "more" && !activeTool && <MorePage attendance={attendance} settings={settings} canManageTeam={identity.isDemo || identity.role === "admin"} openTool={openTool} openForm={setFormDialog} />}
+          {active === "more" && activeTool && <WorkspaceToolView tool={activeTool} identity={identity} analytics={analytics} attendance={attendance} attendanceHistory={attendanceHistory} updateAttendance={updateAttendance} socialPosts={socialPosts} publishSocialPost={publishSocialPost} draftSocialPostCaption={draftSocialPostCaption} leads={crmLeads} properties={crmProperties} members={members} updateTeamMember={updateTeamMember} settings={settings} setSettings={identity.isDemo ? setDemoIntegrationSettings : setRemoteIntegrationSettings} saveIntegrationSettings={saveIntegrationSettings} workspaceSettings={workspaceSettings} setWorkspaceSettings={identity.isDemo ? setDemoWorkspaceSettings : setRemoteWorkspaceSettings} saveWorkspaceSettings={saveWorkspaceSettings} back={() => setActiveTool(null)} openSocialForm={() => setFormDialog({ kind: "social" })} openMemberForm={() => setFormDialog({ kind: "member" })} notify={notify} />}
         </main>
       </div>
 
@@ -1050,11 +1097,22 @@ function formatFollowupActionTime(value: string) {
   }).format(new Date(value));
 }
 
+function normalizeIntegrationSettings(settings: IntegrationSettings): IntegrationSettings {
+  return {
+    ...defaultIntegrationSettings,
+    ...settings,
+    secretStatus: {
+      ...defaultIntegrationSettings.secretStatus,
+      ...settings.secretStatus,
+    },
+  };
+}
+
 function getFollowupProgressDegrees(analytics: AnalyticsSnapshot) {
   return analytics.totalFollowups ? Math.round((analytics.completedFollowups / analytics.totalFollowups) * 360) : 0;
 }
 
-function MorePage({ attendance, canManageTeam, openTool, openForm }: { attendance: typeof initialAttendance; canManageTeam: boolean; openTool: (tool: WorkspaceTool) => void; openForm: (state: FormDialogState) => void }) {
+function MorePage({ attendance, settings, canManageTeam, openTool, openForm }: { attendance: typeof initialAttendance; settings: IntegrationSettings; canManageTeam: boolean; openTool: (tool: WorkspaceTool) => void; openForm: (state: FormDialogState) => void }) {
   const modules = [
     { label: "Attendance", copy: "Check in and track field teams", icon: UserCheck, tool: "attendance" },
     { label: "Social media", copy: "Plan and schedule posts", icon: Megaphone, tool: "social" },
@@ -1066,7 +1124,7 @@ function MorePage({ attendance, canManageTeam, openTool, openForm }: { attendanc
   return <div>
     <PageHeading eyebrow="Workspace" title="More tools" copy="Operate your business from one place." action={canManageTeam ? "Invite member" : undefined} onAction={canManageTeam ? () => openForm({ kind: "member" }) : undefined} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{modules.map((module) => { const Icon = module.icon; return <button key={module.label} onClick={() => openTool(module.tool as WorkspaceTool)} className="flex items-center gap-4 rounded-2xl border border-[#e5e9e4] bg-white p-4 text-left transition hover:border-[#bdd6cb] hover:shadow-sm"><div className="grid h-11 w-11 place-items-center rounded-xl bg-[#e7f3ed] text-[#176b4d]"><Icon size={19} /></div><div className="flex-1"><p className="text-sm font-bold">{module.label}</p><p className="mt-1 text-xs text-[#85918d]">{module.copy}</p></div><ChevronRight className="text-[#aab4b0]" size={16} /></button>; })}</div>
-    <div className="mt-6 grid gap-4 xl:grid-cols-2"><section className="rounded-2xl border border-[#e6eae5] bg-white p-5"><SectionTitle title="Team attendance" action="View attendance" onAction={() => openTool("attendance")} /><div className="mt-4 flex items-center gap-3"><div className="flex -space-x-2">{attendance.map((record, index) => <div key={record.id} className="rounded-full border-2 border-white"><Avatar initials={record.initials} index={index} size="sm" /></div>)}</div><p className="text-xs font-semibold text-[#5d6e67]"><span className="text-[#176b4d]">{attendance.filter((record) => record.status === "Checked in").length} checked in</span> · {attendance.filter((record) => record.status !== "Checked in").length} out today</p></div></section><section className="rounded-2xl border border-[#e6eae5] bg-white p-5"><SectionTitle title="Integration health" /><div className="mt-4 flex flex-wrap gap-2"><Badge tone="green">Dry-run ready</Badge><Badge tone="green">Webhook active</Badge><Badge tone="amber">Production keys needed</Badge></div></section></div>
+    <div className="mt-6 grid gap-4 xl:grid-cols-2"><section className="rounded-2xl border border-[#e6eae5] bg-white p-5"><SectionTitle title="Team attendance" action="View attendance" onAction={() => openTool("attendance")} /><div className="mt-4 flex items-center gap-3"><div className="flex -space-x-2">{attendance.map((record, index) => <div key={record.id} className="rounded-full border-2 border-white"><Avatar initials={record.initials} index={index} size="sm" /></div>)}</div><p className="text-xs font-semibold text-[#5d6e67]"><span className="text-[#176b4d]">{attendance.filter((record) => record.status === "Checked in").length} checked in</span> · {attendance.filter((record) => record.status !== "Checked in").length} out today</p></div></section><section className="rounded-2xl border border-[#e6eae5] bg-white p-5"><SectionTitle title="Integration health" /><div className="mt-4 flex flex-wrap gap-2"><Badge tone="green">{settings.callDryRun && settings.messagingDryRun && settings.emailDryRun ? "Dry-run ready" : "Production mode configured"}</Badge><Badge tone={settings.secretStatus.webhookSecret ? "green" : "amber"}>{settings.secretStatus.webhookSecret ? "Webhook protected" : "Webhook secret needed"}</Badge><Badge tone={settings.secretStatus.twilioAccountSid && settings.secretStatus.twilioAuthToken ? "green" : "amber"}>{settings.secretStatus.twilioAccountSid && settings.secretStatus.twilioAuthToken ? "Twilio provisioned" : "Twilio keys needed"}</Badge></div></section></div>
   </div>;
 }
 

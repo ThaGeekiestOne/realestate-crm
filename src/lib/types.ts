@@ -147,12 +147,35 @@ export interface LeadTimelineItem {
 }
 
 export interface IntegrationSettings {
-  twilioSid: string;
   twilioPhone: string;
   whatsappSender: string;
   emailSender: string;
-  webhookSecret: string;
-  dryRun: boolean;
+  socialPublishWebhookUrl: string;
+  callDryRun: boolean;
+  messagingDryRun: boolean;
+  emailDryRun: boolean;
+  socialPublishDryRun: boolean;
+  secretStatus: IntegrationSecretStatus;
+}
+
+export interface IntegrationSecretStatus {
+  twilioAccountSid: boolean;
+  twilioAuthToken: boolean;
+  resendApiKey: boolean;
+  webhookSecret: boolean;
+  openAiApiKey: boolean;
+}
+
+export type LeadAssignmentMode = "round_robin" | "manual" | "least_busy";
+
+export interface WorkspaceSettings {
+  organizationName: string;
+  assignmentMode: LeadAssignmentMode;
+}
+
+export interface OrganizationSettingsSnapshot {
+  workspace: WorkspaceSettings;
+  integrations: IntegrationSettings;
 }
 
 export interface WorkspaceNotification {

@@ -1,6 +1,9 @@
 import "server-only";
 
+import { getOrganizationIntegrationSettings } from "@/services/organization-settings-service";
+
 export interface SendEmailRequest {
+  organizationId?: string;
   recipient: string;
   subject: string;
   body: string;
@@ -13,13 +16,13 @@ export interface SendEmailResult {
 }
 
 export async function sendEmail(request: SendEmailRequest): Promise<SendEmailResult> {
-  const dryRun = process.env.EMAIL_DRY_RUN !== "false";
+  const settings = await getOrganizationIntegrationSettings(request.organizationId);
 
   if (!request.recipient || !request.subject || !request.body) {
     throw new Error("Email recipient, subject, and body are required");
   }
 
-  if (dryRun) {
+  if (settings.emailDryRun) {
     return {
       providerMessageId: `dry_email_${Date.now()}`,
       status: "simulated",
@@ -28,7 +31,7 @@ export async function sendEmail(request: SendEmailRequest): Promise<SendEmailRes
   }
 
   const apiKey = process.env.RESEND_API_KEY;
-  const sender = process.env.EMAIL_SENDER;
+  const sender = settings.emailSender;
 
   if (!apiKey || !sender) {
     throw new Error("Resend email credentials are incomplete");

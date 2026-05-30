@@ -60,15 +60,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Lead assignment failed" }, { status: 500 });
     }
 
-    if (!agent) {
-      return NextResponse.json({ error: "No available sales agents" }, { status: 503 });
-    }
-
     const { data: lead, error: leadError } = await supabase
       .from("leads")
       .insert({
         organization_id: organizationId,
-        assigned_agent_id: agent.agent_id,
+        assigned_agent_id: agent?.agent_id ?? null,
         full_name: parsed.data.fullName,
         phone: parsed.data.phone,
         email: parsed.data.email,
@@ -85,6 +81,37 @@ export async function POST(request: Request) {
     if (leadError) {
       console.error("Lead persistence failed", leadError);
       return NextResponse.json({ error: "Lead persistence failed" }, { status: 500 });
+    }
+
+    if (!agent) {
+      const { data: managers } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .in("role", ["admin", "sales_manager"]);
+      const { error: activityError } = await supabase.from("activities").insert({
+        organization_id: organizationId,
+        lead_id: lead.id,
+        activity_type: "lead_created",
+        description: `Lead imported from ${lead.source} and queued for manual assignment`,
+        metadata: { assignmentPending: true },
+      });
+      const { error: notificationError } = managers?.length ? await supabase.from("notifications").insert(
+        managers.map((manager) => ({
+          organization_id: organizationId,
+          user_id: manager.id,
+          notification_type: "lead_assignment_pending",
+          title: "Lead awaiting assignment",
+          body: `${lead.full_name} from ${lead.source} needs an agent.`,
+          metadata: { leadId: lead.id },
+        })),
+      ) : { error: null };
+
+      if (activityError || notificationError) {
+        console.error("Manual assignment audit persistence failed", { activityError, notificationError });
+      }
+
+      return NextResponse.json({ lead, assignedAgent: null, call: null, assignmentPending: true, persistence: "supabase" }, { status: 201 });
     }
 
     const { data: callLog, error: callLogError } = await supabase
@@ -108,6 +135,7 @@ export async function POST(request: Request) {
 
     try {
       call = await triggerBridgeCall({
+        organizationId,
         callId: callLog.id,
         leadId: lead.id,
         leadName: lead.full_name,

@@ -86,6 +86,10 @@ Dashboard metrics and reports are derived from the active workspace instead of f
 
 The Team workspace loads organization members and assigned-lead counts from the protected `/api/team-members` route. Organization admins can invite members by email, add their role and phone number, and update role or availability from the CRM. Invitations use Supabase Auth through the server-only service-role client; the browser never receives `SUPABASE_SERVICE_ROLE_KEY`. Demo mode stores the same changes locally without sending invitation emails.
 
+## Workspace Settings
+
+The protected `/api/settings` route persists organization name, lead assignment mode, provider sender values, social publishing webhook URL, and dry-run flags. Admins can choose round-robin, manual, or least-busy assignment. Provider credentials remain server-side environment variables: the browser receives only provisioned or missing status and never receives Twilio tokens, Resend keys, webhook secrets, or OpenAI-compatible API keys.
+
 ## Project Layout
 
 - `src/components/crm-app.tsx`: responsive product interface and interactions.
@@ -96,6 +100,7 @@ The Team workspace loads organization members and assigned-lead counts from the 
 - `src/app/api/properties/actions/`: protected inventory update and deletion route.
 - `src/app/api/notifications/`: protected in-app notification feed and read-state route.
 - `src/app/api/team-members/`: protected admin team invitation and role-management route.
+- `src/app/api/settings/`: protected organization and provider-adapter settings route.
 - `supabase/migrations/`: organization-aware schema and Row Level Security starter.
 
 ## Supabase

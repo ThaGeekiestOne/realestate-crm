@@ -101,6 +101,7 @@ export async function POST(request: Request) {
 
   try {
     const result = await shareProperty({
+      organizationId: profile.organization_id,
       channel: parsed.data.channel,
       leadName: lead.full_name,
       recipient,

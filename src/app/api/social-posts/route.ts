@@ -164,13 +164,13 @@ export async function PATCH(request: Request) {
   try {
     const mediaUrls = getMediaUrls(context.supabase, post.media_storage_paths ?? []);
     const result = await publishSocialPost({
+      organizationId: context.profile.organization_id,
       postId: post.id,
       postType: post.post_type,
       title: post.title,
       caption: post.caption ?? "",
       mediaUrls,
       scheduledAt: post.scheduled_at,
-      webhookUrl: process.env.SOCIAL_PUBLISH_WEBHOOK_URL,
     });
     const { data, error } = await context.supabase
       .from("social_posts")

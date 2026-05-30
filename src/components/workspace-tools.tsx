@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { WorkspaceIdentity } from "@/lib/auth-types";
-import type { AnalyticsSnapshot, AttendanceHistoryRecord, AttendanceRecord, IntegrationSettings, Lead, Property, SocialPost, TeamMember, WorkspaceTool } from "@/lib/types";
+import type { AnalyticsSnapshot, AttendanceHistoryRecord, AttendanceRecord, IntegrationSettings, Lead, Property, SocialPost, TeamMember, WorkspaceSettings, WorkspaceTool } from "@/lib/types";
 import { requestAttendanceCoordinates, type AttendanceAction, type AttendanceCoordinates } from "@/services/attendance-service";
 
 const inputClass = "mt-1.5 h-10 w-full rounded-lg border border-[#dfe5df] bg-white px-3 text-xs outline-none focus:border-[#8ab5a4]";
@@ -118,32 +118,64 @@ export function TeamTool({ identity, members, back, openForm, updateMember }: { 
   </div>;
 }
 
-export function IntegrationsTool({ settings, setSettings, back, notify }: { settings: IntegrationSettings; setSettings: (settings: IntegrationSettings) => void; back: () => void; notify: (message: string) => void }) {
+export function IntegrationsTool({ settings, setSettings, saveSettings, canManage, back, notify }: { settings: IntegrationSettings; setSettings: (settings: IntegrationSettings) => void; saveSettings: (settings: IntegrationSettings) => Promise<void>; canManage: boolean; back: () => void; notify: (message: string) => void }) {
+  const [submitting, setSubmitting] = useState(false);
+  const save = async () => {
+    setSubmitting(true);
+
+    try {
+      await saveSettings(settings);
+      notify("Integration settings saved");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to save integration settings");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return <div>
     <ToolHeader eyebrow="External services" title="Integrations" copy="Configure provider adapters. Secrets remain server-side in production." back={back} />
-    <form onSubmit={(event) => { event.preventDefault(); notify("Integration settings saved locally"); }} className="rounded-2xl border border-[#e5e9e4] bg-white p-5">
+    <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="rounded-2xl border border-[#e5e9e4] bg-white p-5">
       <div className="flex items-center gap-3 border-b border-[#edf0ec] pb-4"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f3ed] text-[#176b4d]"><Zap size={18} /></div><div><h3 className="text-sm font-bold">Provider configuration</h3><p className="mt-1 text-xs text-[#87938e]">Dry-run mode is recommended until production credentials are available.</p></div></div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <IntegrationField label="Twilio Account SID" value={settings.twilioSid} update={(value) => setSettings({ ...settings, twilioSid: value })} placeholder="AC********" />
-        <IntegrationField label="Twilio phone number" value={settings.twilioPhone} update={(value) => setSettings({ ...settings, twilioPhone: value })} placeholder="+1..." />
-        <IntegrationField label="WhatsApp sender" value={settings.whatsappSender} update={(value) => setSettings({ ...settings, whatsappSender: value })} placeholder="+91..." />
-        <IntegrationField label="Email sender" value={settings.emailSender} update={(value) => setSettings({ ...settings, emailSender: value })} placeholder="sales@example.com" />
-        <IntegrationField label="Lead webhook secret" value={settings.webhookSecret} update={(value) => setSettings({ ...settings, webhookSecret: value })} placeholder="********" />
+        <IntegrationField disabled={!canManage} label="Twilio phone number" value={settings.twilioPhone} update={(value) => setSettings({ ...settings, twilioPhone: value })} placeholder="+1..." />
+        <IntegrationField disabled={!canManage} label="WhatsApp sender" value={settings.whatsappSender} update={(value) => setSettings({ ...settings, whatsappSender: value })} placeholder="+91..." />
+        <IntegrationField disabled={!canManage} label="Email sender" value={settings.emailSender} update={(value) => setSettings({ ...settings, emailSender: value })} placeholder="sales@example.com" />
+        <IntegrationField disabled={!canManage} label="Social publish webhook" value={settings.socialPublishWebhookUrl} update={(value) => setSettings({ ...settings, socialPublishWebhookUrl: value })} placeholder="https://hooks.example.com/..." />
       </div>
-      <label className="mt-4 flex items-center gap-3 rounded-xl bg-[#f7f8f5] p-3 text-xs font-bold text-[#586760]"><input type="checkbox" checked={settings.dryRun} onChange={(event) => setSettings({ ...settings, dryRun: event.target.checked })} className="h-4 w-4 accent-[#176b4d]" />Use dry-run mode for calls and messages</label>
-      <button type="submit" className="mt-4 rounded-lg bg-[#176b4d] px-4 py-2.5 text-xs font-bold text-white">Save configuration</button>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2"><IntegrationToggle disabled={!canManage} label="Dry-run voice calls" checked={settings.callDryRun} update={(checked) => setSettings({ ...settings, callDryRun: checked })} /><IntegrationToggle disabled={!canManage} label="Dry-run WhatsApp and SMS" checked={settings.messagingDryRun} update={(checked) => setSettings({ ...settings, messagingDryRun: checked })} /><IntegrationToggle disabled={!canManage} label="Dry-run email" checked={settings.emailDryRun} update={(checked) => setSettings({ ...settings, emailDryRun: checked })} /><IntegrationToggle disabled={!canManage} label="Dry-run social publishing" checked={settings.socialPublishDryRun} update={(checked) => setSettings({ ...settings, socialPublishDryRun: checked })} /></div>
+      {canManage ? <button disabled={submitting} type="submit" className="mt-4 rounded-lg bg-[#176b4d] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-wait disabled:opacity-70">{submitting ? "Saving..." : "Save configuration"}</button> : <p className="mt-4 text-xs font-semibold text-[#87938e]">Only organization admins can change integration settings.</p>}
     </form>
+    <section className="mt-4 rounded-2xl border border-[#e5e9e4] bg-white p-5"><h3 className="text-sm font-bold">Server-side credentials</h3><p className="mt-1 text-xs leading-5 text-[#87938e]">Secrets are provisioned through environment variables and are never returned to the browser.</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{[["Twilio Account SID", settings.secretStatus.twilioAccountSid], ["Twilio Auth Token", settings.secretStatus.twilioAuthToken], ["Resend API key", settings.secretStatus.resendApiKey], ["Lead webhook secret", settings.secretStatus.webhookSecret], ["OpenAI-compatible API key", settings.secretStatus.openAiApiKey]].map(([label, ready]) => <div key={String(label)} className="flex items-center justify-between rounded-xl bg-[#f7f8f5] px-3 py-2.5 text-xs font-bold text-[#596862]"><span>{label}</span><Badge tone={ready ? "green" : "amber"}>{ready ? "Provisioned" : "Missing"}</Badge></div>)}</div></section>
   </div>;
 }
 
-function IntegrationField({ label, value, update, placeholder }: { label: string; value: string; update: (value: string) => void; placeholder: string }) {
-  return <label className="text-[11px] font-bold text-[#65736e]">{label}<input className={inputClass} value={value} onChange={(event) => update(event.target.value)} placeholder={placeholder} /></label>;
+function IntegrationField({ label, value, update, placeholder, disabled }: { label: string; value: string; update: (value: string) => void; placeholder: string; disabled?: boolean }) {
+  return <label className="text-[11px] font-bold text-[#65736e]">{label}<input disabled={disabled} className={`${inputClass} disabled:bg-[#f4f6f3] disabled:text-[#99a39f]`} value={value} onChange={(event) => update(event.target.value)} placeholder={placeholder} /></label>;
 }
 
-export function SettingsTool({ back, notify }: { back: () => void; notify: (message: string) => void }) {
+function IntegrationToggle({ label, checked, update, disabled }: { label: string; checked: boolean; update: (checked: boolean) => void; disabled?: boolean }) {
+  return <label className="flex items-center gap-3 rounded-xl bg-[#f7f8f5] p-3 text-xs font-bold text-[#586760]"><input disabled={disabled} type="checkbox" checked={checked} onChange={(event) => update(event.target.checked)} className="h-4 w-4 accent-[#176b4d]" />{label}</label>;
+}
+
+export function SettingsTool({ settings, setSettings, saveSettings, canManage, back, notify }: { settings: WorkspaceSettings; setSettings: (settings: WorkspaceSettings) => void; saveSettings: (settings: WorkspaceSettings) => Promise<void>; canManage: boolean; back: () => void; notify: (message: string) => void }) {
+  const [submitting, setSubmitting] = useState(false);
+  const save = async () => {
+    setSubmitting(true);
+
+    try {
+      await saveSettings(settings);
+      notify("Workspace settings saved");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to save workspace settings");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return <div>
     <ToolHeader eyebrow="Workspace" title="Settings" copy="Manage default CRM behavior for your organization." back={back} />
-    <form onSubmit={(event) => { event.preventDefault(); notify("Workspace settings saved"); }} className="rounded-2xl border border-[#e5e9e4] bg-white p-5"><div className="flex items-center gap-3 border-b border-[#edf0ec] pb-4"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f3ed] text-[#176b4d]"><Settings size={18} /></div><div><h3 className="text-sm font-bold">Lead operations</h3><p className="mt-1 text-xs text-[#87938e]">Choose how new enquiries enter the sales queue.</p></div></div><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-[11px] font-bold text-[#65736e]">Organization name<input className={inputClass} defaultValue="EstateFlow Demo Realty" /></label><label className="text-[11px] font-bold text-[#65736e]">Lead assignment mode<select className={inputClass} defaultValue="Round Robin"><option>Round Robin</option><option>Manual</option><option>Least Busy Agent</option></select></label></div><button className="mt-4 rounded-lg bg-[#176b4d] px-4 py-2.5 text-xs font-bold text-white">Save workspace</button></form>
+    <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="rounded-2xl border border-[#e5e9e4] bg-white p-5"><div className="flex items-center gap-3 border-b border-[#edf0ec] pb-4"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f3ed] text-[#176b4d]"><Settings size={18} /></div><div><h3 className="text-sm font-bold">Lead operations</h3><p className="mt-1 text-xs text-[#87938e]">Choose how new enquiries enter the sales queue.</p></div></div><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-[11px] font-bold text-[#65736e]">Organization name<input disabled={!canManage} className={`${inputClass} disabled:bg-[#f4f6f3] disabled:text-[#99a39f]`} value={settings.organizationName} onChange={(event) => setSettings({ ...settings, organizationName: event.target.value })} /></label><label className="text-[11px] font-bold text-[#65736e]">Lead assignment mode<select disabled={!canManage} className={`${inputClass} disabled:bg-[#f4f6f3] disabled:text-[#99a39f]`} value={settings.assignmentMode} onChange={(event) => setSettings({ ...settings, assignmentMode: event.target.value as WorkspaceSettings["assignmentMode"] })}><option value="round_robin">Round Robin</option><option value="manual">Manual</option><option value="least_busy">Least Busy Agent</option></select></label></div>{canManage ? <button disabled={submitting} className="mt-4 rounded-lg bg-[#176b4d] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-wait disabled:opacity-70">{submitting ? "Saving..." : "Save workspace"}</button> : <p className="mt-4 text-xs font-semibold text-[#87938e]">Only organization admins can change workspace settings.</p>}</form>
     <section className="mt-4 rounded-2xl border border-[#e5e9e4] bg-white p-5"><div className="flex gap-3"><ShieldCheck className="text-[#176b4d]" size={19} /><div><h3 className="text-sm font-bold">Organization data isolation</h3><p className="mt-1 text-xs leading-5 text-[#7c8984]">The Supabase migration includes organization-scoped Row Level Security policies for leads, calls, properties, and follow-ups.</p></div></div></section>
   </div>;
 }
@@ -164,6 +196,10 @@ export function WorkspaceToolView({ tool, ...props }: {
   updateTeamMember: (member: TeamMember) => Promise<void>;
   settings: IntegrationSettings;
   setSettings: (settings: IntegrationSettings) => void;
+  saveIntegrationSettings: (settings: IntegrationSettings) => Promise<void>;
+  workspaceSettings: WorkspaceSettings;
+  setWorkspaceSettings: (settings: WorkspaceSettings) => void;
+  saveWorkspaceSettings: (settings: WorkspaceSettings) => Promise<void>;
   back: () => void;
   openSocialForm: () => void;
   openMemberForm: () => void;
@@ -173,6 +209,6 @@ export function WorkspaceToolView({ tool, ...props }: {
   if (tool === "social") return <SocialTool posts={props.socialPosts} publishPost={props.publishSocialPost} draftCaption={props.draftSocialPostCaption} back={props.back} openForm={props.openSocialForm} />;
   if (tool === "reports") return <ReportsTool leads={props.leads} analytics={props.analytics} back={props.back} />;
   if (tool === "team") return <TeamTool identity={props.identity} members={props.members} back={props.back} openForm={props.openMemberForm} updateMember={props.updateTeamMember} />;
-  if (tool === "integrations") return <IntegrationsTool settings={props.settings} setSettings={props.setSettings} back={props.back} notify={props.notify} />;
-  return <SettingsTool back={props.back} notify={props.notify} />;
+  if (tool === "integrations") return <IntegrationsTool settings={props.settings} setSettings={props.setSettings} saveSettings={props.saveIntegrationSettings} canManage={props.identity.isDemo || props.identity.role === "admin"} back={props.back} notify={props.notify} />;
+  return <SettingsTool settings={props.workspaceSettings} setSettings={props.setWorkspaceSettings} saveSettings={props.saveWorkspaceSettings} canManage={props.identity.isDemo || props.identity.role === "admin"} back={props.back} notify={props.notify} />;
 }

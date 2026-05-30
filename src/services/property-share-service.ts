@@ -4,6 +4,7 @@ import { sendEmail } from "@/services/email-service";
 import { sendMessage, type MessageChannel } from "@/services/message-service";
 
 export interface SharePropertyRequest {
+  organizationId?: string;
   channel: MessageChannel | "email";
   leadName: string;
   recipient: string;
@@ -19,6 +20,7 @@ export async function shareProperty(request: SharePropertyRequest) {
 
   if (request.channel === "email") {
     const result = await sendEmail({
+      organizationId: request.organizationId,
       recipient: request.recipient,
       subject: `${request.propertyTitle} property details`,
       body,
@@ -27,6 +29,7 @@ export async function shareProperty(request: SharePropertyRequest) {
   }
 
   const result = await sendMessage({
+    organizationId: request.organizationId,
     channel: request.channel,
     recipient: request.recipient,
     body,

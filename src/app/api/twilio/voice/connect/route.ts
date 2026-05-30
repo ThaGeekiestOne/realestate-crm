@@ -27,6 +27,7 @@ export async function POST(request: Request) {
     const leadCall = await callLeadForConference({
       callId,
       leadPhone: context.leadPhone,
+      organizationId: context.organizationId,
     });
 
     await updateCallLog(callId, {

@@ -1,8 +1,11 @@
 import "server-only";
 
+import { getOrganizationIntegrationSettings } from "@/services/organization-settings-service";
+
 export type MessageChannel = "whatsapp" | "sms";
 
 export interface SendMessageRequest {
+  organizationId?: string;
   channel: MessageChannel;
   recipient: string;
   body: string;
@@ -15,9 +18,9 @@ export interface SendMessageResult {
 }
 
 export async function sendMessage(request: SendMessageRequest): Promise<SendMessageResult> {
-  const dryRun = process.env.MESSAGING_DRY_RUN !== "false";
+  const settings = await getOrganizationIntegrationSettings(request.organizationId);
 
-  if (dryRun) {
+  if (settings.messagingDryRun) {
     return {
       providerMessageId: `dry_${request.channel}_${Date.now()}`,
       status: "simulated",
@@ -27,7 +30,7 @@ export async function sendMessage(request: SendMessageRequest): Promise<SendMess
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const sender = request.channel === "whatsapp" ? process.env.WHATSAPP_SENDER_NUMBER : process.env.TWILIO_PHONE_NUMBER;
+  const sender = request.channel === "whatsapp" ? settings.whatsappSender : settings.twilioPhone;
 
   if (!accountSid || !authToken || !sender) {
     throw new Error(`Twilio ${request.channel} credentials are incomplete`);

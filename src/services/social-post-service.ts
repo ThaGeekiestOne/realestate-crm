@@ -1,6 +1,9 @@
 import "server-only";
 
+import { getOrganizationIntegrationSettings } from "@/services/organization-settings-service";
+
 export interface PublishSocialPostRequest {
+  organizationId?: string;
   postId: string;
   postType: string;
   title: string;
@@ -16,13 +19,14 @@ export interface PublishSocialPostResult {
 }
 
 export async function publishSocialPost(request: PublishSocialPostRequest): Promise<PublishSocialPostResult> {
-  const dryRun = process.env.SOCIAL_PUBLISH_DRY_RUN !== "false";
+  const settings = await getOrganizationIntegrationSettings(request.organizationId);
+  const webhookUrl = request.webhookUrl || settings.socialPublishWebhookUrl;
 
-  if (dryRun || !request.webhookUrl) {
+  if (settings.socialPublishDryRun || !webhookUrl) {
     return { status: "simulated", dryRun: true };
   }
 
-  const response = await fetch(request.webhookUrl, {
+  const response = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),

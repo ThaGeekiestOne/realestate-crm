@@ -1,6 +1,9 @@
 import "server-only";
 
+import { getOrganizationIntegrationSettings } from "@/services/organization-settings-service";
+
 export interface BridgeCallRequest {
+  organizationId?: string;
   callId?: string;
   leadId: string;
   leadName: string;
@@ -20,10 +23,6 @@ interface TwilioCallResponse {
   sid: string;
 }
 
-export function isTwilioDryRun() {
-  return process.env.TWILIO_DRY_RUN !== "false";
-}
-
 export function getPublicAppUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 }
@@ -38,10 +37,9 @@ function getProductionCallbackBaseUrl() {
   return appUrl;
 }
 
-function getTwilioCredentials() {
+function getTwilioCredentials(phoneNumber: string) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const phoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
   if (!accountSid || !authToken || !phoneNumber) {
     throw new Error("Twilio credentials are incomplete");
@@ -54,8 +52,9 @@ async function createTwilioCall(input: {
   to: string;
   voiceUrl: string;
   statusCallbackUrl: string;
+  phoneNumber: string;
 }) {
-  const { accountSid, authToken, phoneNumber } = getTwilioCredentials();
+  const { accountSid, authToken, phoneNumber } = getTwilioCredentials(input.phoneNumber);
   const body = new URLSearchParams({
     To: input.to,
     From: phoneNumber,
@@ -83,7 +82,9 @@ async function createTwilioCall(input: {
 }
 
 export async function triggerBridgeCall(request: BridgeCallRequest): Promise<BridgeCallResult> {
-  if (isTwilioDryRun()) {
+  const settings = await getOrganizationIntegrationSettings(request.organizationId);
+
+  if (settings.callDryRun) {
     return {
       callSid: `dry_${request.leadId}_${Date.now()}`,
       status: "simulated",
@@ -104,6 +105,7 @@ export async function triggerBridgeCall(request: BridgeCallRequest): Promise<Bri
     to: request.agentPhone,
     voiceUrl: `${appUrl}/api/twilio/voice/agent?callId=${encodeURIComponent(request.callId)}`,
     statusCallbackUrl: `${appUrl}/api/twilio/voice/status?callId=${encodeURIComponent(request.callId)}&leg=agent`,
+    phoneNumber: settings.twilioPhone,
   });
 
   return {
@@ -113,8 +115,10 @@ export async function triggerBridgeCall(request: BridgeCallRequest): Promise<Bri
   };
 }
 
-export async function callLeadForConference(input: { callId: string; leadPhone: string }) {
-  if (isTwilioDryRun()) {
+export async function callLeadForConference(input: { callId: string; leadPhone: string; organizationId?: string }) {
+  const settings = await getOrganizationIntegrationSettings(input.organizationId);
+
+  if (settings.callDryRun) {
     return { callSid: `dry_lead_${input.callId}_${Date.now()}` };
   }
 
@@ -123,6 +127,7 @@ export async function callLeadForConference(input: { callId: string; leadPhone: 
     to: input.leadPhone,
     voiceUrl: `${appUrl}/api/twilio/voice/lead?callId=${encodeURIComponent(input.callId)}`,
     statusCallbackUrl: `${appUrl}/api/twilio/voice/status?callId=${encodeURIComponent(input.callId)}&leg=lead`,
+    phoneNumber: settings.twilioPhone,
   });
 
   return { callSid: call.sid };

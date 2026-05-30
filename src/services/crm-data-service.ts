@@ -357,12 +357,8 @@ export async function createOrganizationLead(identity: WorkspaceIdentity, input:
   }
 
   const assignedAgent = agents?.[0] as { agent_id: string; full_name: string } | undefined;
-  const fallbackAgentId = ["sales_manager", "sales_agent"].includes(identity.role) ? identity.id : null;
+  const fallbackAgentId = identity.role === "sales_agent" ? identity.id : null;
   const assignedAgentId = assignedAgent?.agent_id ?? fallbackAgentId;
-
-  if (!assignedAgentId) {
-    throw new Error("No available sales agent could be assigned.");
-  }
 
   const { data, error } = await supabase
     .from("leads")
