@@ -68,12 +68,17 @@ The social media workspace stores tenant-scoped drafts and schedules, uploads po
 
 Dashboard metrics and reports are derived from the active workspace instead of fixed placeholders. Live Supabase sessions load tenant-scoped lead, call, follow-up, property-share, attendance, inventory, and recent-activity analytics through RLS. Reports include lead sources, pipeline status, agent call performance, follow-up completion, property sharing, won/lost totals, conversion, available inventory, and attendance counts. Demo mode computes the same views from browser-stored workspace records.
 
+## Team Management
+
+The Team workspace loads organization members and assigned-lead counts from the protected `/api/team-members` route. Organization admins can invite members by email, add their role and phone number, and update role or availability from the CRM. Invitations use Supabase Auth through the server-only service-role client; the browser never receives `SUPABASE_SERVICE_ROLE_KEY`. Demo mode stores the same changes locally without sending invitation emails.
+
 ## Project Layout
 
 - `src/components/crm-app.tsx`: responsive product interface and interactions.
 - `src/lib/`: shared types and seeded prototype data.
 - `src/services/`: organization data reads plus provider-independent call, message, email, property-share, attendance, social-publish, and lead-assignment adapters.
 - `src/app/api/webhooks/leads/`: public lead intake route.
+- `src/app/api/team-members/`: protected admin team invitation and role-management route.
 - `supabase/migrations/`: organization-aware schema and Row Level Security starter.
 
 ## Supabase

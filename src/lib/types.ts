@@ -107,6 +107,7 @@ export interface TeamMember {
   id: string;
   name: string;
   initials: string;
+  email?: string;
   role: string;
   phone: string;
   status: "Available" | "Busy" | "Offline";

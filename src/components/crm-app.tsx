@@ -91,6 +91,11 @@ import {
   type AttendanceCoordinates,
 } from "@/services/attendance-service";
 import { getDemoAnalyticsSnapshot, getOrganizationAnalyticsSnapshot } from "@/services/analytics-service";
+import {
+  getOrganizationTeamMembers,
+  inviteOrganizationTeamMember,
+  updateOrganizationTeamMember,
+} from "@/services/team-member-service";
 
 const nav = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -194,7 +199,8 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const [demoSocialPosts, setDemoSocialPosts] = usePersistentState("estateflow.social-posts", initialSocialPosts);
   const [remoteSocialPosts, setRemoteSocialPosts] = useState<SocialPost[]>([]);
   const [remoteAnalytics, setRemoteAnalytics] = useState<AnalyticsSnapshot>();
-  const [members, setMembers] = usePersistentState("estateflow.members", initialTeamMembers);
+  const [demoMembers, setDemoMembers] = usePersistentState("estateflow.members", initialTeamMembers);
+  const [remoteMembers, setRemoteMembers] = useState<typeof initialTeamMembers>([]);
   const [settings, setSettings] = usePersistentState<IntegrationSettings>("estateflow.integrations", {
     twilioSid: "",
     twilioPhone: "",
@@ -209,6 +215,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const attendance = identity.isDemo ? demoAttendance : remoteAttendance;
   const attendanceHistory = identity.isDemo ? demoAttendanceHistory : remoteAttendanceHistory;
   const socialPosts = identity.isDemo ? demoSocialPosts : remoteSocialPosts;
+  const members = identity.isDemo ? demoMembers : remoteMembers;
   const demoAnalytics = useMemo(() => getDemoAnalyticsSnapshot({
     leads: crmLeads,
     properties: crmProperties,
@@ -226,11 +233,12 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
 
     const loadWorkspace = async () => {
       try {
-        const [snapshot, attendanceSnapshot, socialSnapshot, analyticsSnapshot] = await Promise.all([
+        const [snapshot, attendanceSnapshot, socialSnapshot, analyticsSnapshot, teamSnapshot] = await Promise.all([
           getOrganizationWorkspaceSnapshot(identity),
           getOrganizationAttendance(identity),
           getOrganizationSocialPosts(identity),
           getOrganizationAnalyticsSnapshot(identity),
+          getOrganizationTeamMembers(identity),
         ]);
 
         if (active) {
@@ -241,6 +249,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           setRemoteAttendanceHistory(attendanceSnapshot.history);
           setRemoteSocialPosts(socialSnapshot.posts);
           setRemoteAnalytics(analyticsSnapshot);
+          setRemoteMembers(teamSnapshot);
           setWorkspaceStatus({ status: "ready" });
         }
       } catch (error) {
@@ -507,10 +516,38 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
     }
   };
 
-  const addMember = (member: typeof members[number]) => {
-    setMembers([...members, member]);
-    setFormDialog(null);
-    notify(`${member.name} added to the team`);
+  const addMember = async (member: typeof members[number]) => {
+    try {
+      const createdMember = identity.isDemo ? member : await inviteOrganizationTeamMember(identity, member);
+
+      if (identity.isDemo) {
+        setDemoMembers([...demoMembers, createdMember]);
+      } else {
+        setRemoteMembers([...remoteMembers, createdMember]);
+      }
+
+      setFormDialog(null);
+      notify(identity.isDemo ? `${createdMember.name} added to the demo team` : `Invitation sent to ${createdMember.email}`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to invite team member");
+    }
+  };
+
+  const updateTeamMember = async (member: typeof members[number]) => {
+    try {
+      const updatedMember = identity.isDemo ? member : await updateOrganizationTeamMember(identity, member);
+      const updateMembers = (items: typeof members) => items.map((item) => item.id === updatedMember.id ? updatedMember : item);
+
+      if (identity.isDemo) {
+        setDemoMembers(updateMembers(demoMembers));
+      } else {
+        setRemoteMembers(updateMembers(remoteMembers));
+      }
+
+      notify(`${updatedMember.name} updated`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to update team member");
+    }
   };
 
   return (
@@ -565,8 +602,8 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           {active === "leads" && <LeadsPage search={search} setSearch={setSearch} leadFilter={leadFilter} setLeadFilter={setLeadFilter} leads={filteredLeads} setSelectedLead={setSelectedLead} openForm={setFormDialog} />}
           {active === "properties" && <PropertiesPage properties={crmProperties} openForm={setFormDialog} notify={notify} />}
           {active === "followups" && <FollowupsPage followups={crmFollowups} analytics={analytics} completeFollowup={completeFollowup} sendQuickFollowup={sendQuickFollowup} snoozeFollowup={snoozeFollowup} openForm={setFormDialog} notify={notify} />}
-          {active === "more" && !activeTool && <MorePage attendance={attendance} openTool={openTool} openForm={setFormDialog} />}
-          {active === "more" && activeTool && <WorkspaceToolView tool={activeTool} identity={identity} analytics={analytics} attendance={attendance} attendanceHistory={attendanceHistory} updateAttendance={updateAttendance} socialPosts={socialPosts} publishSocialPost={publishSocialPost} draftSocialPostCaption={draftSocialPostCaption} leads={crmLeads} properties={crmProperties} members={members} settings={settings} setSettings={setSettings} back={() => setActiveTool(null)} openSocialForm={() => setFormDialog({ kind: "social" })} openMemberForm={() => setFormDialog({ kind: "member" })} notify={notify} />}
+          {active === "more" && !activeTool && <MorePage attendance={attendance} canManageTeam={identity.isDemo || identity.role === "admin"} openTool={openTool} openForm={setFormDialog} />}
+          {active === "more" && activeTool && <WorkspaceToolView tool={activeTool} identity={identity} analytics={analytics} attendance={attendance} attendanceHistory={attendanceHistory} updateAttendance={updateAttendance} socialPosts={socialPosts} publishSocialPost={publishSocialPost} draftSocialPostCaption={draftSocialPostCaption} leads={crmLeads} properties={crmProperties} members={members} updateTeamMember={updateTeamMember} settings={settings} setSettings={setSettings} back={() => setActiveTool(null)} openSocialForm={() => setFormDialog({ kind: "social" })} openMemberForm={() => setFormDialog({ kind: "member" })} notify={notify} />}
         </main>
       </div>
 
@@ -696,8 +733,8 @@ function formatDashboardDate() {
   return new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
 }
 
-function PageHeading({ eyebrow, title, copy, action, onAction }: { eyebrow: string; title: string; copy: string; action: string; onAction: () => void }) {
-  return <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8d9a95]">{eyebrow}</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.055em] text-[#1e2d28]">{title}</h2><p className="mt-1 text-sm text-[#74817c]">{copy}</p></div><button onClick={onAction} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white sm:h-10 sm:w-auto"><Plus size={16} />{action}</button></div>;
+function PageHeading({ eyebrow, title, copy, action, onAction }: { eyebrow: string; title: string; copy: string; action?: string; onAction?: () => void }) {
+  return <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8d9a95]">{eyebrow}</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.055em] text-[#1e2d28]">{title}</h2><p className="mt-1 text-sm text-[#74817c]">{copy}</p></div>{action && <button onClick={onAction} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white sm:h-10 sm:w-auto"><Plus size={16} />{action}</button>}</div>;
 }
 
 function LeadsPage({ search, setSearch, leadFilter, setLeadFilter, leads, setSelectedLead, openForm }: { search: string; setSearch: (value: string) => void; leadFilter: string; setLeadFilter: (value: string) => void; leads: Lead[]; setSelectedLead: (lead: Lead) => void; openForm: (state: FormDialogState) => void }) {
@@ -789,7 +826,7 @@ function getFollowupProgressDegrees(analytics: AnalyticsSnapshot) {
   return analytics.totalFollowups ? Math.round((analytics.completedFollowups / analytics.totalFollowups) * 360) : 0;
 }
 
-function MorePage({ attendance, openTool, openForm }: { attendance: typeof initialAttendance; openTool: (tool: WorkspaceTool) => void; openForm: (state: FormDialogState) => void }) {
+function MorePage({ attendance, canManageTeam, openTool, openForm }: { attendance: typeof initialAttendance; canManageTeam: boolean; openTool: (tool: WorkspaceTool) => void; openForm: (state: FormDialogState) => void }) {
   const modules = [
     { label: "Attendance", copy: "Check in and track field teams", icon: UserCheck, tool: "attendance" },
     { label: "Social media", copy: "Plan and schedule posts", icon: Megaphone, tool: "social" },
@@ -799,7 +836,7 @@ function MorePage({ attendance, openTool, openForm }: { attendance: typeof initi
     { label: "Settings", copy: "Configure your workspace", icon: Settings, tool: "settings" },
   ];
   return <div>
-    <PageHeading eyebrow="Workspace" title="More tools" copy="Operate your business from one place." action="Invite member" onAction={() => openForm({ kind: "member" })} />
+    <PageHeading eyebrow="Workspace" title="More tools" copy="Operate your business from one place." action={canManageTeam ? "Invite member" : undefined} onAction={canManageTeam ? () => openForm({ kind: "member" }) : undefined} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{modules.map((module) => { const Icon = module.icon; return <button key={module.label} onClick={() => openTool(module.tool as WorkspaceTool)} className="flex items-center gap-4 rounded-2xl border border-[#e5e9e4] bg-white p-4 text-left transition hover:border-[#bdd6cb] hover:shadow-sm"><div className="grid h-11 w-11 place-items-center rounded-xl bg-[#e7f3ed] text-[#176b4d]"><Icon size={19} /></div><div className="flex-1"><p className="text-sm font-bold">{module.label}</p><p className="mt-1 text-xs text-[#85918d]">{module.copy}</p></div><ChevronRight className="text-[#aab4b0]" size={16} /></button>; })}</div>
     <div className="mt-6 grid gap-4 xl:grid-cols-2"><section className="rounded-2xl border border-[#e6eae5] bg-white p-5"><SectionTitle title="Team attendance" action="View attendance" onAction={() => openTool("attendance")} /><div className="mt-4 flex items-center gap-3"><div className="flex -space-x-2">{attendance.map((record, index) => <div key={record.id} className="rounded-full border-2 border-white"><Avatar initials={record.initials} index={index} size="sm" /></div>)}</div><p className="text-xs font-semibold text-[#5d6e67]"><span className="text-[#176b4d]">{attendance.filter((record) => record.status === "Checked in").length} checked in</span> · {attendance.filter((record) => record.status !== "Checked in").length} out today</p></div></section><section className="rounded-2xl border border-[#e6eae5] bg-white p-5"><SectionTitle title="Integration health" /><div className="mt-4 flex flex-wrap gap-2"><Badge tone="green">Dry-run ready</Badge><Badge tone="green">Webhook active</Badge><Badge tone="amber">Production keys needed</Badge></div></section></div>
   </div>;

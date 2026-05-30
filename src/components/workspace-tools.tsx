@@ -109,10 +109,12 @@ function ReportMetric({ label, value, icon: Icon }: { label: string; value: stri
   return <article className="rounded-2xl border border-[#e5e9e4] bg-white p-4"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#e7f3ed] text-[#176b4d]"><Icon size={16} /></div><p className="mt-4 text-2xl font-bold tracking-[-0.05em]">{value}</p><p className="mt-1 text-xs text-[#74817c]">{label}</p></article>;
 }
 
-export function TeamTool({ members, back, openForm }: { members: TeamMember[]; back: () => void; openForm: () => void }) {
+export function TeamTool({ identity, members, back, openForm, updateMember }: { identity: WorkspaceIdentity; members: TeamMember[]; back: () => void; openForm: () => void; updateMember: (member: TeamMember) => Promise<void> }) {
+  const canManageTeam = identity.isDemo || identity.role === "admin";
+
   return <div>
-    <ToolHeader eyebrow="Organization" title="Team" copy="Manage roles, availability, and sales workload." back={back} action="Invite member" onAction={openForm} />
-    <section className="rounded-2xl border border-[#e5e9e4] bg-white p-4"><div className="divide-y divide-[#edf0ec]">{members.map((member, index) => <div key={member.id} className="flex items-center gap-3 py-4"><Avatar initials={member.initials} index={index} /><div className="min-w-0 flex-1"><p className="text-xs font-bold">{member.name}</p><p className="mt-1 text-[10px] text-[#87938e]">{member.role} - {member.phone}</p></div><div className="text-right"><Badge tone={member.status === "Available" ? "green" : member.status === "Busy" ? "amber" : "neutral"}>{member.status}</Badge><p className="mt-1 text-[10px] text-[#87938e]">{member.leads} assigned leads</p></div></div>)}</div></section>
+    <ToolHeader eyebrow="Organization" title="Team" copy="Manage roles, availability, and sales workload." back={back} action={canManageTeam ? "Invite member" : undefined} onAction={canManageTeam ? openForm : undefined} />
+    <section className="rounded-2xl border border-[#e5e9e4] bg-white p-4"><div className="divide-y divide-[#edf0ec]">{members.map((member, index) => <div key={member.id} className="flex flex-wrap items-center gap-3 py-4"><Avatar initials={member.initials} index={index} /><div className="min-w-0 flex-1"><p className="text-xs font-bold">{member.name}</p><p className="mt-1 text-[10px] text-[#87938e]">{member.phone}{member.email ? ` - ${member.email}` : ""}</p><p className="mt-1 text-[10px] text-[#87938e]">{member.leads} assigned leads</p></div>{canManageTeam ? <div className="grid w-full grid-cols-2 gap-2 sm:w-auto"><select aria-label={`Role for ${member.name}`} value={member.role} onChange={(event) => void updateMember({ ...member, role: event.target.value })} className="h-9 rounded-lg border border-[#dfe5df] bg-white px-2 text-[10px] font-bold text-[#65736e]">{["Admin", "Sales Manager", "Sales Agent", "Field Executive", "Social Media Manager"].map((role) => <option key={role}>{role}</option>)}</select><select aria-label={`Availability for ${member.name}`} value={member.status} onChange={(event) => void updateMember({ ...member, status: event.target.value as TeamMember["status"] })} className="h-9 rounded-lg border border-[#dfe5df] bg-white px-2 text-[10px] font-bold text-[#65736e]">{["Available", "Busy", "Offline"].map((status) => <option key={status}>{status}</option>)}</select></div> : <div className="text-right"><Badge tone={member.status === "Available" ? "green" : member.status === "Busy" ? "amber" : "neutral"}>{member.status}</Badge><p className="mt-1 text-[10px] text-[#87938e]">{member.role}</p></div>}</div>)}</div></section>
   </div>;
 }
 
@@ -159,6 +161,7 @@ export function WorkspaceToolView({ tool, ...props }: {
   leads: Lead[];
   properties: Property[];
   members: TeamMember[];
+  updateTeamMember: (member: TeamMember) => Promise<void>;
   settings: IntegrationSettings;
   setSettings: (settings: IntegrationSettings) => void;
   back: () => void;
@@ -169,7 +172,7 @@ export function WorkspaceToolView({ tool, ...props }: {
   if (tool === "attendance") return <AttendanceTool identity={props.identity} records={props.attendance} history={props.attendanceHistory} updateAttendance={props.updateAttendance} back={props.back} notify={props.notify} />;
   if (tool === "social") return <SocialTool posts={props.socialPosts} publishPost={props.publishSocialPost} draftCaption={props.draftSocialPostCaption} back={props.back} openForm={props.openSocialForm} />;
   if (tool === "reports") return <ReportsTool leads={props.leads} analytics={props.analytics} back={props.back} />;
-  if (tool === "team") return <TeamTool members={props.members} back={props.back} openForm={props.openMemberForm} />;
+  if (tool === "team") return <TeamTool identity={props.identity} members={props.members} back={props.back} openForm={props.openMemberForm} updateMember={props.updateTeamMember} />;
   if (tool === "integrations") return <IntegrationsTool settings={props.settings} setSettings={props.setSettings} back={props.back} notify={props.notify} />;
   return <SettingsTool back={props.back} notify={props.notify} />;
 }

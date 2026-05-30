@@ -151,9 +151,10 @@ export function WorkspaceFormDialog({ state, close, addLead, addProperty, addFol
       event.preventDefault();
       const data = new FormData(event.currentTarget);
       const name = String(data.get("name"));
-      addMember({ id: `TM-${Date.now().toString().slice(-4)}`, name, initials: name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase(), role: String(data.get("role")), phone: String(data.get("phone")), status: "Available", leads: 0 });
+      addMember({ id: `TM-${Date.now().toString().slice(-4)}`, name, initials: name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase(), email: String(data.get("email")), role: String(data.get("role")), phone: String(data.get("phone")), status: "Available", leads: 0 });
     }}>
       <Field label="Full name"><input required name="name" className={inputClass} placeholder="Team member name" /></Field>
+      <Field label="Email"><input required type="email" name="email" className={inputClass} placeholder="agent@example.com" /></Field>
       <Field label="Phone"><input required name="phone" className={inputClass} placeholder="+91 99999 99999" /></Field>
       <Field label="Role"><select name="role" className={inputClass}>{["Sales Manager", "Sales Agent", "Field Executive", "Social Media Manager"].map((value) => <option key={value}>{value}</option>)}</select></Field>
       <FormActions close={close} />
