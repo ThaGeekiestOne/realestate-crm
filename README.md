@@ -60,6 +60,10 @@ The inventory workspace supports structured property creation, search, status/ty
 
 The follow-up queue supports reusable message templates, one-click WhatsApp, SMS, and email dispatch, call reminders, 30-minute snoozes, and completion. The protected `/api/followups/actions` route validates the signed-in workspace, sends through the server-side provider adapters, and records message and activity audit entries. Dry-run mode keeps the full workflow usable without provider credentials.
 
+## Notifications
+
+The header bell opens a responsive in-app notification center with unread counts, per-item read actions, mark-all, and an empty state. Live sessions load user-addressed notifications from the protected `/api/notifications` route. Lead assignment, missed calls, scheduled follow-ups, site visits, and property sharing feed the notification table; demo mode persists the same read workflow in browser storage.
+
 ## Lead Operations
 
 The lead drawer supports qualification changes, hot-lead marking, note updates, sales-agent reassignment, and tenant-scoped activity history. Its **Call now** action uses the protected `/api/leads/actions` route to create a call log before starting the Twilio bridge adapter. The same route loads calls, messages, follow-ups, property shares, and activity records into the lead timeline. Demo mode simulates the call and keeps lead edits in browser storage.
@@ -90,6 +94,7 @@ The Team workspace loads organization members and assigned-lead counts from the 
 - `src/app/api/webhooks/leads/`: public lead intake route.
 - `src/app/api/leads/actions/`: protected lead qualification, timeline, and bridge-call route.
 - `src/app/api/properties/actions/`: protected inventory update and deletion route.
+- `src/app/api/notifications/`: protected in-app notification feed and read-state route.
 - `src/app/api/team-members/`: protected admin team invitation and role-management route.
 - `supabase/migrations/`: organization-aware schema and Row Level Security starter.
 

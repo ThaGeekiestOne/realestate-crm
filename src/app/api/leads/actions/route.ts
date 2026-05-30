@@ -203,6 +203,17 @@ export async function POST(request: Request) {
     metadata: { temperature: parsed.data.temperature, assignedAgentId: parsed.data.assignedAgentId },
   });
 
+  if (parsed.data.status === "Site Visit") {
+    await context.supabase.from("notifications").insert({
+      organization_id: context.profile.organization_id,
+      user_id: parsed.data.assignedAgentId ?? lead.assigned_agent_id ?? context.profile.id,
+      notification_type: "site_visit_scheduled",
+      title: "Site visit scheduled",
+      body: `${lead.full_name} moved to the site visit stage.`,
+      metadata: { leadId: lead.id },
+    });
+  }
+
   return NextResponse.json({
     lead: {
       status: parsed.data.status,

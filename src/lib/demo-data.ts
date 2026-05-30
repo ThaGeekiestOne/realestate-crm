@@ -1,4 +1,4 @@
-import type { AttendanceHistoryRecord, AttendanceRecord, Followup, Lead, Property, SocialPost, TeamMember } from "@/lib/types";
+import type { AttendanceHistoryRecord, AttendanceRecord, Followup, Lead, Property, SocialPost, TeamMember, WorkspaceNotification } from "@/lib/types";
 
 export const leads: Lead[] = [
   { id: "LD-1048", name: "Aarav Mehta", initials: "AM", phone: "+91 98765 40218", source: "MagicBricks", propertyType: "Apartment", budget: "₹1.2–1.5 Cr", location: "Golf Course Road", status: "New", temperature: "Hot", agent: "Riya Kapoor", nextFollowup: "Today, 11:30 AM", created: "8 min ago", note: "Looking for a ready-to-move 3 BHK. Wants to schedule a visit this weekend." },
@@ -66,4 +66,10 @@ export const teamMembers: TeamMember[] = [
   { id: "TM-02", name: "Kabir Singh", initials: "KS", role: "Sales Agent", phone: "+91 98765 00002", status: "Busy", leads: 14 },
   { id: "TM-03", name: "Aditi Verma", initials: "AV", role: "Field Executive", phone: "+91 98765 00003", status: "Available", leads: 0 },
   { id: "TM-04", name: "Neha Mehra", initials: "NM", role: "Social Media Manager", phone: "+91 98765 00004", status: "Offline", leads: 0 },
+];
+
+export const notifications: WorkspaceNotification[] = [
+  { id: "NT-03", type: "new_lead_assigned", title: "New lead assigned", body: "Aarav Mehta from MagicBricks needs a callback.", createdAt: new Date(Date.now() - 8 * 60_000).toISOString(), read: false },
+  { id: "NT-02", type: "followup_due", title: "Follow-up due soon", body: "Review shortlisted options with Priya Sharma.", createdAt: new Date(Date.now() - 32 * 60_000).toISOString(), read: false },
+  { id: "NT-01", type: "property_shared", title: "Property details shared", body: "Emaar Palm Heights was shared with Rohan Verma.", createdAt: new Date(Date.now() - 95 * 60_000).toISOString(), read: true },
 ];

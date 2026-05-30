@@ -129,9 +129,17 @@ export async function POST(request: Request) {
       description: `${property.title} shared via ${parsed.data.channel}`,
       metadata: { propertyId: property.id, shareId: share.id, shareUrl: result.shareUrl },
     });
+    const { error: notificationError } = await supabase.from("notifications").insert({
+      organization_id: profile.organization_id,
+      user_id: lead.assigned_agent_id ?? profile.id,
+      notification_type: "property_shared",
+      title: "Property details shared",
+      body: `${property.title} was shared with ${lead.full_name} via ${parsed.data.channel}.`,
+      metadata: { leadId: lead.id, propertyId: property.id, shareId: share.id },
+    });
 
-    if (auditError || activityError) {
-      console.error("Property share audit logging failed", { auditError, activityError });
+    if (auditError || activityError || notificationError) {
+      console.error("Property share audit logging failed", { auditError, activityError, notificationError });
     }
 
     return NextResponse.json({ shareId: share.id, shareUrl: result.shareUrl, status: result.status }, { status: 201 });

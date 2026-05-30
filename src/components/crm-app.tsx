@@ -41,6 +41,7 @@ import {
   attendanceHistory as initialAttendanceHistory,
   followups as initialFollowups,
   leads as initialLeads,
+  notifications as initialNotifications,
   properties as initialProperties,
   socialPosts as initialSocialPosts,
   teamMembers as initialTeamMembers,
@@ -61,6 +62,7 @@ import type {
   Property,
   SocialPost,
   WorkspaceTool,
+  WorkspaceNotification,
 } from "@/lib/types";
 import { followupTemplates, type FollowupMessageChannel, type FollowupTemplateId } from "@/lib/followup-templates";
 import {
@@ -110,6 +112,10 @@ import {
   updateOrganizationProperty,
   type PropertyUpdateInput,
 } from "@/services/property-action-client-service";
+import {
+  getOrganizationNotifications,
+  markOrganizationNotificationRead,
+} from "@/services/notification-client-service";
 
 const nav = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -120,6 +126,16 @@ const nav = [
 ] satisfies { key: ModuleKey; label: string; icon: typeof Home }[];
 
 const avatarColors = ["#e9f3ef", "#f7eddd", "#e9ebf8", "#f8e9e7"];
+const notificationIcons = {
+  new_lead_assigned: Bell,
+  missed_lead_call: Phone,
+  followup_due: CalendarClock,
+  site_visit_scheduled: CalendarClock,
+  property_shared: Share2,
+  attendance_issue: UserCheck,
+  social_post_due: Megaphone,
+  general: Bell,
+} satisfies Record<WorkspaceNotification["type"], typeof Bell>;
 
 function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "green" | "amber" | "red" | "neutral" | "purple" }) {
   const styles = {
@@ -188,6 +204,21 @@ function WorkspaceSyncStatus({ state, retry }: { state: { status: "demo" | "load
   return <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-[#f0d6d2] bg-[#fff6f5] px-3 py-2.5 text-xs font-semibold text-[#a44e4b]"><AlertCircle size={15} /><span className="flex-1">{state.message}</span><button onClick={retry} className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#a44e4b] shadow-sm"><RefreshCw size={12} />Retry</button></div>;
 }
 
+function NotificationCenter({ notifications, close, markRead }: { notifications: WorkspaceNotification[]; close: () => void; markRead: (notificationId?: string) => Promise<void> }) {
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
+
+  return <div className="fixed inset-0 z-40 bg-[#15251f]/20" onMouseDown={close}><section aria-label="Notifications panel" onMouseDown={(event) => event.stopPropagation()} className="absolute inset-x-3 top-[76px] max-h-[calc(100vh-9.5rem)] overflow-hidden rounded-2xl border border-[#e1e6e0] bg-white shadow-2xl sm:left-auto sm:right-4 sm:w-[390px]">
+    <div className="flex items-center justify-between border-b border-[#edf0ec] px-4 py-3"><div><h2 className="text-sm font-bold text-[#2c3d36]">Notifications</h2><p className="mt-0.5 text-[10px] text-[#89958f]">{unreadCount ? `${unreadCount} unread updates` : "You are all caught up"}</p></div><div className="flex items-center gap-2">{unreadCount > 0 && <button onClick={() => void markRead()} className="text-[10px] font-bold text-[#176b4d]">Mark all read</button>}<button aria-label="Close notifications" onClick={close} className="grid h-8 w-8 place-items-center rounded-full bg-[#f1f3f0] text-[#68756f]"><X size={14} /></button></div></div>
+    <div className="max-h-[calc(100vh-13.5rem)] overflow-y-auto p-2">{notifications.map((notification) => <NotificationItem key={notification.id} notification={notification} markRead={markRead} />)}{!notifications.length && <div className="py-12 text-center"><Bell className="mx-auto text-[#a3afaa]" size={22} /><p className="mt-3 text-sm font-bold">No notifications yet</p><p className="mt-1 text-xs text-[#89958f]">New lead and follow-up updates will appear here.</p></div>}</div>
+  </section></div>;
+}
+
+function NotificationItem({ notification, markRead }: { notification: WorkspaceNotification; markRead: (notificationId?: string) => Promise<void> }) {
+  const Icon = notificationIcons[notification.type];
+
+  return <button onClick={() => !notification.read && void markRead(notification.id)} className={`flex w-full gap-3 rounded-xl p-3 text-left transition ${notification.read ? "bg-white" : "bg-[#f3f8f5] hover:bg-[#edf5f1]"}`}><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${notification.read ? "bg-[#f1f3f0] text-[#7e8b86]" : "bg-[#e1f0e9] text-[#176b4d]"}`}><Icon size={15} /></div><div className="min-w-0 flex-1"><div className="flex items-start gap-2"><p className="flex-1 text-xs font-bold text-[#40514b]">{notification.title}</p>{!notification.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#dc5d54]" />}</div>{notification.body && <p className="mt-1 text-[11px] leading-4 text-[#7c8984]">{notification.body}</p>}<p className="mt-1.5 text-[10px] font-semibold text-[#a0aaa6]">{formatTimelineTime(notification.createdAt)}</p></div></button>;
+}
+
 export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; onSignOut?: () => Promise<void> }) {
   const [active, setActive] = useState<ModuleKey>("dashboard");
   const [search, setSearch] = useState("");
@@ -196,6 +227,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [activeTool, setActiveTool] = useState<WorkspaceTool | null>(null);
   const [formDialog, setFormDialog] = useState<FormDialogState | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [toast, setToast] = useState("");
   const [demoLeads, setDemoLeads] = usePersistentState("estateflow.leads", initialLeads);
   const [demoProperties, setDemoProperties] = usePersistentState("estateflow.properties", initialProperties);
@@ -203,6 +235,8 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const [remoteLeads, setRemoteLeads] = useState<Lead[]>([]);
   const [remoteProperties, setRemoteProperties] = useState<typeof initialProperties>([]);
   const [remoteFollowups, setRemoteFollowups] = useState<typeof initialFollowups>([]);
+  const [demoNotifications, setDemoNotifications] = usePersistentState("estateflow.notifications", initialNotifications);
+  const [remoteNotifications, setRemoteNotifications] = useState<WorkspaceNotification[]>([]);
   const [workspaceStatus, setWorkspaceStatus] = useState<{ status: "demo" | "loading" | "ready" | "error"; message?: string }>(
     identity.isDemo ? { status: "demo" } : { status: "loading" },
   );
@@ -227,6 +261,8 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const crmLeads = identity.isDemo ? demoLeads : remoteLeads;
   const crmProperties = identity.isDemo ? demoProperties : remoteProperties;
   const crmFollowups = identity.isDemo ? demoFollowups : remoteFollowups;
+  const notifications = identity.isDemo ? demoNotifications : remoteNotifications;
+  const unreadNotifications = notifications.filter((notification) => !notification.read).length;
   const canAddLead = identity.isDemo || ["admin", "sales_manager", "sales_agent"].includes(identity.role);
   const canManageInventory = identity.isDemo || ["admin", "sales_manager"].includes(identity.role);
   const attendance = identity.isDemo ? demoAttendance : remoteAttendance;
@@ -250,12 +286,13 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
 
     const loadWorkspace = async () => {
       try {
-        const [snapshot, attendanceSnapshot, socialSnapshot, analyticsSnapshot, teamSnapshot] = await Promise.all([
+        const [snapshot, attendanceSnapshot, socialSnapshot, analyticsSnapshot, teamSnapshot, notificationSnapshot] = await Promise.all([
           getOrganizationWorkspaceSnapshot(identity),
           getOrganizationAttendance(identity),
           getOrganizationSocialPosts(identity),
           getOrganizationAnalyticsSnapshot(identity),
           getOrganizationTeamMembers(identity),
+          getOrganizationNotifications(identity),
         ]);
 
         if (active) {
@@ -267,6 +304,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           setRemoteSocialPosts(socialSnapshot.posts);
           setRemoteAnalytics(analyticsSnapshot);
           setRemoteMembers(teamSnapshot);
+          setRemoteNotifications(notificationSnapshot);
           setWorkspaceStatus({ status: "ready" });
         }
       } catch (error) {
@@ -324,6 +362,44 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
       setRemoteAnalytics(await getOrganizationAnalyticsSnapshot(identity));
     } catch (error) {
       console.error("Unable to refresh workspace analytics", error);
+    }
+  };
+
+  const refreshNotifications = async () => {
+    if (identity.isDemo) {
+      return;
+    }
+
+    try {
+      setRemoteNotifications(await getOrganizationNotifications(identity));
+    } catch (error) {
+      console.error("Unable to refresh workspace notifications", error);
+    }
+  };
+
+  const addDemoNotification = (notification: Pick<WorkspaceNotification, "type" | "title" | "body">) => {
+    setDemoNotifications([{
+      id: `NT-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      read: false,
+      ...notification,
+    }, ...demoNotifications]);
+  };
+
+  const markNotificationRead = async (notificationId?: string) => {
+    try {
+      await markOrganizationNotificationRead(identity, notificationId);
+      const updateNotifications = (items: WorkspaceNotification[]) => items.map((notification) => (
+        !notificationId || notification.id === notificationId ? { ...notification, read: true } : notification
+      ));
+
+      if (identity.isDemo) {
+        setDemoNotifications(updateNotifications(demoNotifications));
+      } else {
+        setRemoteNotifications(updateNotifications(remoteNotifications));
+      }
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to update notifications");
     }
   };
 
@@ -407,6 +483,11 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
       }
       setFormDialog(null);
       notify(`Follow-up scheduled for ${createdFollowup.lead}`);
+      if (identity.isDemo) {
+        addDemoNotification({ type: "followup_due", title: "Follow-up scheduled", body: `${createdFollowup.lead} follow-up is due ${createdFollowup.time}.` });
+      } else {
+        void refreshNotifications();
+      }
       void refreshAnalytics();
     } catch (error) {
       notify(error instanceof Error ? error.message : "Unable to schedule follow-up");
@@ -464,6 +545,11 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
       const result = await shareLeadProperty(identity, lead, property, channel);
       await navigator.clipboard?.writeText(result.shareUrl).catch(() => undefined);
       notify(`${property.title} shared via ${channel}. Link copied.`);
+      if (identity.isDemo) {
+        addDemoNotification({ type: "property_shared", title: "Property details shared", body: `${property.title} was shared with ${lead.name} via ${channel}.` });
+      } else {
+        void refreshNotifications();
+      }
       void refreshAnalytics();
     } catch (error) {
       notify(error instanceof Error ? error.message : "Unable to share property");
@@ -673,9 +759,9 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
               <Search size={15} />
               <input className="w-44 bg-transparent text-xs outline-none placeholder:text-[#9ca6a1]" placeholder="Search anything..." />
             </label>
-            <button aria-label="Notifications" className="relative grid h-9 w-9 place-items-center rounded-lg border border-[#e1e6e1] bg-white text-[#65726d]">
+            <button aria-label={`${unreadNotifications} unread notifications`} aria-expanded={showNotifications} onClick={() => setShowNotifications(!showNotifications)} className="relative grid h-9 w-9 place-items-center rounded-lg border border-[#e1e6e1] bg-white text-[#65726d]">
               <Bell size={16} />
-              <span className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-[#dc5d54]" />
+              {unreadNotifications > 0 && <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-[#dc5d54] px-1 text-[9px] font-bold text-white">{unreadNotifications}</span>}
             </button>
             {onSignOut ? <button aria-label="Sign out" onClick={() => void onSignOut()}><Avatar initials={identity.initials} size="sm" /></button> : <Avatar initials={identity.initials} size="sm" />}
           </div>
@@ -701,6 +787,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
 
       {selectedLead && <LeadDrawer key={selectedLead.id} identity={identity} lead={selectedLead} properties={crmProperties} members={members} close={() => setSelectedLead(null)} notify={notify} shareProperty={sendPropertyShare} callLead={callLead} updateLead={updateLead} />}
       {selectedProperty && <PropertyDrawer key={selectedProperty.id} property={selectedProperty} canManageInventory={canManageInventory} close={() => setSelectedProperty(null)} updateProperty={updateProperty} deleteProperty={deleteProperty} />}
+      {showNotifications && <NotificationCenter notifications={notifications} close={() => setShowNotifications(false)} markRead={markNotificationRead} />}
       {formDialog && <WorkspaceFormDialog state={formDialog} close={() => setFormDialog(null)} addLead={addLead} addProperty={addProperty} addFollowup={addFollowup} addSocialPost={addSocialPost} addMember={addMember} />}
       {toast && <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-2xl bg-[#1d352c] px-4 py-2.5 text-center text-xs font-semibold text-white shadow-xl lg:bottom-7"><CheckCircle2 className="shrink-0" size={15} />{toast}</div>}
     </div>

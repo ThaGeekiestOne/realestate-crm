@@ -486,6 +486,19 @@ export async function createOrganizationFollowup(identity: WorkspaceIdentity, in
     throw new Error(error.message);
   }
 
+  const { error: notificationError } = await supabase.from("notifications").insert({
+    organization_id: identity.organizationId,
+    user_id: identity.id,
+    notification_type: "followup_due",
+    title: "Follow-up scheduled",
+    body: `${name} follow-up is due ${formatDateTime(data.due_at)}.`,
+    metadata: { followupId: data.id, leadId: lead.id },
+  });
+
+  if (notificationError) {
+    console.error("Unable to create follow-up notification", notificationError);
+  }
+
   return mapFollowup(data);
 }
 

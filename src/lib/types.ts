@@ -146,6 +146,15 @@ export interface IntegrationSettings {
   dryRun: boolean;
 }
 
+export interface WorkspaceNotification {
+  id: string;
+  type: "new_lead_assigned" | "missed_lead_call" | "followup_due" | "site_visit_scheduled" | "property_shared" | "attendance_issue" | "social_post_due" | "general";
+  title: string;
+  body?: string;
+  createdAt: string;
+  read: boolean;
+}
+
 export interface DashboardActivity {
   id: string;
   icon: "phone" | "share" | "lead" | "visit";
