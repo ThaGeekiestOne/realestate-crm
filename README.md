@@ -78,6 +78,8 @@ The lead drawer supports qualification changes, hot-lead marking, note updates, 
 
 The lead list supports search plus status, source, assigned-agent, temperature, and created-today filters. Live Supabase reads are role-aware: admins and sales managers can operate across the organization, while sales agents can read and update only their assigned leads and follow-up queue rows. Protected lead actions and property sharing apply the same assigned-lead rule server-side.
 
+Lead-linked calls, messages, activities, and property-share audit rows use the same access rule at the database layer. Browser sessions can read authorized timeline records but server routes own audit inserts and updates. Inventory photo metadata and Storage mutations are restricted to admins and sales managers.
+
 ## Employee Attendance
 
 The attendance workspace captures browser GPS coordinates for check-in and check-out, accepts optional field notes and private selfie evidence, shows personal attendance history, and summarizes the current organization team. The protected `/api/attendance` route validates the signed-in workspace before reading or updating tenant-scoped attendance rows and logs attendance activity events. The private `attendance-media` bucket restricts uploads to the signed-in user's organization folder. Demo mode stores the same workflow locally in browser storage.
