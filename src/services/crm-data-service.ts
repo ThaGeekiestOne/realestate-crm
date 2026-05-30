@@ -183,7 +183,7 @@ function normalizeStatus(status: string): LeadStatus {
     return "Site Visit";
   }
 
-  if (["New", "Contacted", "Interested", "Site Visit", "Negotiation", "Won"].includes(status)) {
+  if (["New", "Contacted", "Interested", "Site Visit", "Negotiation", "Won", "Lost", "Not Responding"].includes(status)) {
     return status as LeadStatus;
   }
 

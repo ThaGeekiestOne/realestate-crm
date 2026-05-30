@@ -53,6 +53,7 @@ import type {
   DashboardActivity,
   IntegrationSettings,
   Lead,
+  LeadTimelineItem,
   LeadStatus,
   LeadTemperature,
   ModuleKey,
@@ -96,6 +97,12 @@ import {
   inviteOrganizationTeamMember,
   updateOrganizationTeamMember,
 } from "@/services/team-member-service";
+import {
+  getLeadTimeline,
+  startLeadBridgeCall,
+  updateOrganizationLead,
+  type LeadUpdateInput,
+} from "@/services/lead-action-client-service";
 
 const nav = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -533,6 +540,36 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
     }
   };
 
+  const updateLead = async (lead: Lead, input: LeadUpdateInput) => {
+    try {
+      const updatedLead = await updateOrganizationLead(identity, lead, input);
+      const mergedLead = { ...lead, ...updatedLead, agent: updatedLead.agent ?? lead.agent };
+      const updateLeads = (items: Lead[]) => items.map((item) => item.id === lead.id ? mergedLead : item);
+
+      if (identity.isDemo) {
+        setDemoLeads(updateLeads(demoLeads));
+      } else {
+        setRemoteLeads(updateLeads(remoteLeads));
+      }
+
+      setSelectedLead(mergedLead);
+      notify(`${mergedLead.name} updated`);
+      void refreshAnalytics();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to update lead");
+    }
+  };
+
+  const callLead = async (lead: Lead) => {
+    try {
+      const result = await startLeadBridgeCall(identity, lead);
+      notify(result.status === "simulated" ? `Calling ${lead.name} in dry-run mode` : `Bridge call queued for ${lead.name}`);
+      void refreshAnalytics();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to start bridge call");
+    }
+  };
+
   const updateTeamMember = async (member: typeof members[number]) => {
     try {
       const updatedMember = identity.isDemo ? member : await updateOrganizationTeamMember(identity, member);
@@ -614,7 +651,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
         })}
       </nav>
 
-      {selectedLead && <LeadDrawer lead={selectedLead} properties={crmProperties} close={() => setSelectedLead(null)} notify={notify} shareProperty={sendPropertyShare} />}
+      {selectedLead && <LeadDrawer key={selectedLead.id} identity={identity} lead={selectedLead} properties={crmProperties} members={members} close={() => setSelectedLead(null)} notify={notify} shareProperty={sendPropertyShare} callLead={callLead} updateLead={updateLead} />}
       {formDialog && <WorkspaceFormDialog state={formDialog} close={() => setFormDialog(null)} addLead={addLead} addProperty={addProperty} addFollowup={addFollowup} addSocialPost={addSocialPost} addMember={addMember} />}
       {toast && <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-2xl bg-[#1d352c] px-4 py-2.5 text-center text-xs font-semibold text-white shadow-xl lg:bottom-7"><CheckCircle2 className="shrink-0" size={15} />{toast}</div>}
     </div>
@@ -842,18 +879,72 @@ function MorePage({ attendance, canManageTeam, openTool, openForm }: { attendanc
   </div>;
 }
 
-function LeadDrawer({ lead, properties, close, notify, shareProperty }: { lead: Lead; properties: typeof initialProperties; close: () => void; notify: (message: string) => void; shareProperty: (lead: Lead, property: typeof initialProperties[number], channel: PropertyShareChannel) => Promise<void> }) {
+function LeadDrawer({ identity, lead, properties, members, close, notify, shareProperty, callLead, updateLead }: { identity: WorkspaceIdentity; lead: Lead; properties: typeof initialProperties; members: typeof initialTeamMembers; close: () => void; notify: (message: string) => void; shareProperty: (lead: Lead, property: typeof initialProperties[number], channel: PropertyShareChannel) => Promise<void>; callLead: (lead: Lead) => Promise<void>; updateLead: (lead: Lead, input: LeadUpdateInput) => Promise<void> }) {
   const [showProperties, setShowProperties] = useState(false);
+  const [timeline, setTimeline] = useState<LeadTimelineItem[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(true);
+  const [timelineToken, setTimelineToken] = useState(0);
+  const [draft, setDraft] = useState(() => getLeadDraft(lead, members));
+
+  useEffect(() => {
+    let active = true;
+
+    void getLeadTimeline(identity, lead).then((items) => {
+      if (active) {
+        setTimeline(items);
+        setTimelineLoading(false);
+      }
+    }).catch((error) => {
+      if (active) {
+        setTimeline([]);
+        setTimelineLoading(false);
+        notify(error instanceof Error ? error.message : "Unable to load lead timeline");
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [identity, lead, notify, timelineToken]);
+
+  const refreshTimeline = () => {
+    setTimelineLoading(true);
+    setTimelineToken((token) => token + 1);
+  };
+
+  const saveLead = async () => {
+    const agent = members.find((member) => (member.profileId ?? member.id) === draft.assignedAgentId);
+    await updateLead(lead, { ...draft, agent: agent?.name ?? lead.agent });
+    refreshTimeline();
+  };
+
   return <div className="fixed inset-0 z-40 bg-[#15251f]/30 backdrop-blur-[2px]" onMouseDown={close}><aside onMouseDown={(event) => event.stopPropagation()} className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl">
     <div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8d9a95]">Lead details</p><button aria-label="Close lead details" onClick={close} className="grid h-8 w-8 place-items-center rounded-full bg-[#f1f3f0] text-[#68756f]"><X size={15} /></button></div>
     <div className="mt-6 flex items-center gap-3"><Avatar initials={lead.initials} size="lg" /><div><div className="flex items-center gap-2"><h3 className="text-lg font-bold tracking-[-0.04em]">{lead.name}</h3><Badge tone={temperatureTone(lead.temperature)}>{lead.temperature}</Badge></div><p className="mt-1 text-xs text-[#7c8984]">{lead.id} · {lead.source}</p></div></div>
-    <div className="mt-6 grid grid-cols-3 gap-2"><DrawerAction icon={Phone} label="Call now" onClick={() => notify(`Calling ${lead.name} in dry-run mode`)} /><DrawerAction icon={MessageCircle} label="WhatsApp" onClick={() => notify(`WhatsApp follow-up prepared for ${lead.name}`)} /><DrawerAction icon={Share2} label="Property" onClick={() => setShowProperties(!showProperties)} /></div>
+    <div className="mt-6 grid grid-cols-3 gap-2"><DrawerAction icon={Phone} label="Call now" onClick={() => void callLead(lead).then(refreshTimeline)} /><DrawerAction icon={MessageCircle} label="WhatsApp" onClick={() => notify(`WhatsApp follow-up prepared for ${lead.name}`)} /><DrawerAction icon={Share2} label="Property" onClick={() => setShowProperties(!showProperties)} /></div>
     {showProperties && <div className="mt-4 rounded-xl border border-[#dfe7e2] bg-[#fbfcfa] p-3"><div className="flex items-center justify-between"><p className="text-xs font-bold text-[#40514b]">Select a property to share</p><Badge tone="green">{properties.length} listings</Badge></div><div className="mt-2 max-h-72 space-y-2 overflow-y-auto">{properties.map((property) => <div key={property.id} className="rounded-xl border border-[#e6eae5] bg-white p-3"><div className="flex gap-3"><div className="h-12 w-14 shrink-0 rounded-lg bg-cover bg-center" style={{ backgroundImage: `url(${property.image})` }} /><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#34443e]">{property.title}</p><p className="mt-1 truncate text-[10px] text-[#85918d]">{property.location} · {property.price}</p></div></div><div className="mt-3 grid grid-cols-3 gap-1.5"><ShareChannelButton label="WhatsApp" icon={MessageCircle} onClick={() => void shareProperty(lead, property, "whatsapp")} /><ShareChannelButton label="SMS" icon={Phone} onClick={() => void shareProperty(lead, property, "sms")} /><ShareChannelButton label="Email" icon={Mail} onClick={() => void shareProperty(lead, property, "email")} /></div></div>)}</div></div>}
     <div className="mt-6 grid grid-cols-2 gap-4 rounded-xl bg-[#f7f8f5] p-4 text-xs"><Detail label="Phone" value={lead.phone} /><Detail label="Status" value={lead.status} /><Detail label="Budget" value={lead.budget} /><Detail label="Property" value={lead.propertyType} /><Detail label="Location" value={lead.location} /><Detail label="Assigned to" value={lead.agent} /></div>
+    <div className="mt-6"><SectionTitle title="Qualification" /><div className="mt-3 grid gap-3 rounded-xl border border-[#e6eae5] p-3 sm:grid-cols-2"><DrawerField label="Status"><select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as LeadStatus })} className={drawerInputClass}>{["New", "Contacted", "Interested", "Site Visit", "Negotiation", "Won", "Lost", "Not Responding"].map((status) => <option key={status}>{status}</option>)}</select></DrawerField><DrawerField label="Temperature"><select value={draft.temperature} onChange={(event) => setDraft({ ...draft, temperature: event.target.value as Lead["temperature"] })} className={drawerInputClass}>{["Hot", "Warm", "Cold"].map((temperature) => <option key={temperature}>{temperature}</option>)}</select></DrawerField><DrawerField label="Assigned agent"><select value={draft.assignedAgentId} onChange={(event) => setDraft({ ...draft, assignedAgentId: event.target.value })} className={drawerInputClass}>{members.filter((member) => ["Sales Manager", "Sales Agent"].includes(member.role)).map((member) => <option key={member.id} value={member.profileId ?? member.id}>{member.name}</option>)}</select></DrawerField><button onClick={() => setDraft({ ...draft, temperature: "Hot" })} className="mt-5 h-10 rounded-lg bg-[#fbebea] px-3 text-xs font-bold text-[#b34b49]">Mark as hot lead</button><label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#9aa5a1] sm:col-span-2">Notes<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} className={`${drawerInputClass} min-h-20 py-2`} /></label><button onClick={() => void saveLead()} className="h-10 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white sm:col-span-2">Save lead changes</button></div></div>
     <div className="mt-6"><SectionTitle title="Next follow-up" /><div className="mt-3 flex items-center gap-3 rounded-xl border border-[#eadfc7] bg-[#fffaf0] p-3"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#faedcd] text-[#a66b16]"><CalendarClock size={16} /></div><div><p className="text-xs font-bold">{lead.nextFollowup}</p><p className="mt-1 text-[10px] text-[#8f7b5e]">Call and discuss shortlisted options</p></div></div></div>
-    <div className="mt-6"><SectionTitle title="Latest note" /><p className="mt-3 rounded-xl border border-[#e6eae5] p-3 text-xs leading-5 text-[#64726d]">{lead.note}</p></div>
-    <div className="mt-6"><SectionTitle title="Activity timeline" /><div className="mt-4 space-y-4"><Timeline icon={Phone} title="Bridge call connected" copy="3m 42s with Riya Kapoor" /><Timeline icon={MessageCircle} title="WhatsApp details sent" copy="Emaar Palm Heights brochure" /><Timeline icon={Sparkles} title="Lead created" copy={`Imported from ${lead.source}`} /></div></div>
+    <div className="mt-6"><SectionTitle title="Activity timeline" />{timelineLoading ? <p className="mt-4 text-xs text-[#8a9691]">Loading timeline...</p> : <div className="mt-4 space-y-4">{timeline.map((item) => <Timeline key={item.id} item={item} />)}</div>}{!timelineLoading && !timeline.length && <p className="mt-4 text-xs text-[#8a9691]">No lead activity recorded yet.</p>}</div>
   </aside></div>;
+}
+
+const drawerInputClass = "mt-1.5 h-10 w-full rounded-lg border border-[#dfe5df] bg-white px-3 text-xs font-semibold text-[#46554f] outline-none focus:border-[#8ab5a4]";
+
+function getLeadDraft(lead: Lead, members: typeof initialTeamMembers): LeadUpdateInput {
+  const assignedAgent = members.find((member) => member.name === lead.agent);
+  return {
+    status: lead.status,
+    temperature: lead.temperature,
+    note: lead.note,
+    assignedAgentId: assignedAgent?.profileId ?? assignedAgent?.id,
+    agent: lead.agent,
+  };
+}
+
+function DrawerField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#9aa5a1]">{label}{children}</label>;
 }
 
 function ShareChannelButton({ label, icon: Icon, onClick }: { label: string; icon: typeof Phone; onClick: () => void }) {
@@ -868,6 +959,12 @@ function Detail({ label, value }: { label: string; value: string }) {
   return <div><p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#9aa5a1]">{label}</p><p className="mt-1 font-semibold text-[#46554f]">{value}</p></div>;
 }
 
-function Timeline({ icon: Icon, title, copy }: { icon: typeof Phone; title: string; copy: string }) {
-  return <div className="flex gap-3"><div className="grid h-8 w-8 place-items-center rounded-full bg-[#edf5f1] text-[#267058]"><Icon size={13} /></div><div><p className="text-xs font-bold text-[#46554f]">{title}</p><p className="mt-1 text-[10px] text-[#8a9691]">{copy}</p></div></div>;
+function Timeline({ item }: { item: LeadTimelineItem }) {
+  const icons = { phone: Phone, message: MessageCircle, share: Share2, followup: CalendarClock, lead: Sparkles };
+  const Icon = icons[item.icon];
+  return <div className="flex gap-3"><div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#edf5f1] text-[#267058]"><Icon size={13} /></div><div><p className="text-xs font-bold text-[#46554f]">{item.title}</p><p className="mt-1 text-[10px] text-[#8a9691]">{item.detail} - {formatTimelineTime(item.timestamp)}</p></div></div>;
+}
+
+function formatTimelineTime(value: string) {
+  return new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(-Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000)), "minute");
 }

@@ -22,7 +22,9 @@ export type LeadStatus =
   | "Interested"
   | "Site Visit"
   | "Negotiation"
-  | "Won";
+  | "Won"
+  | "Lost"
+  | "Not Responding";
 
 export interface Lead {
   id: string;
@@ -105,6 +107,7 @@ export interface SocialPost {
 
 export interface TeamMember {
   id: string;
+  profileId?: string;
   name: string;
   initials: string;
   email?: string;
@@ -112,6 +115,14 @@ export interface TeamMember {
   phone: string;
   status: "Available" | "Busy" | "Offline";
   leads: number;
+}
+
+export interface LeadTimelineItem {
+  id: string;
+  icon: "phone" | "message" | "share" | "followup" | "lead";
+  title: string;
+  detail: string;
+  timestamp: string;
 }
 
 export interface IntegrationSettings {
