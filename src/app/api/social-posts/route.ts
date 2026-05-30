@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { ProfileRole } from "@/lib/auth-types";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import { draftSocialCaption, publishSocialPost } from "@/services/social-post-service";
 
@@ -39,9 +40,9 @@ async function getRequestContext(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, organization_id, full_name")
+    .select("id, organization_id, full_name, role")
     .eq("id", authData.user.id)
-    .single();
+    .single<{ id: string; organization_id: string; full_name: string; role: ProfileRole }>();
 
   return profileError || !profile ? null : { supabase, profile };
 }
@@ -51,6 +52,10 @@ export async function GET(request: Request) {
 
   if (!context) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
+  if (!canManageSocialPosts(context.profile.role)) {
+    return NextResponse.json({ error: "Only admins and social media managers can access social posts" }, { status: 403 });
   }
 
   const { data, error } = await context.supabase
@@ -71,6 +76,10 @@ export async function POST(request: Request) {
 
   if (!context) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
+  if (!canManageSocialPosts(context.profile.role)) {
+    return NextResponse.json({ error: "Only admins and social media managers can create social posts" }, { status: 403 });
   }
 
   let body: unknown;
@@ -121,6 +130,10 @@ export async function PATCH(request: Request) {
 
   if (!context) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
+  if (!canManageSocialPosts(context.profile.role)) {
+    return NextResponse.json({ error: "Only admins and social media managers can update social posts" }, { status: 403 });
   }
 
   let body: unknown;
@@ -228,4 +241,8 @@ function mapPost(supabase: ReturnType<typeof getSupabaseAdminClient>, post: {
 
 function getMediaUrls(supabase: ReturnType<typeof getSupabaseAdminClient>, paths: string[]) {
   return paths.map((path) => supabase?.storage.from("social-media").getPublicUrl(path).data.publicUrl).filter(Boolean) as string[];
+}
+
+function canManageSocialPosts(role: ProfileRole) {
+  return ["admin", "social_media_manager"].includes(role);
 }

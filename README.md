@@ -78,6 +78,8 @@ The attendance workspace captures browser GPS coordinates for check-in and check
 
 The Site Visits workspace uses protected tenant-scoped tasks for field walkthrough execution. Admins and sales managers can assign a lead, location, schedule, and field executive. Assigned field executives can review their visits, save field notes, and mark walkthroughs complete. The protected `/api/site-visits` route records notifications and lead timeline activity while demo mode persists the same workflow locally.
 
+Attendance, social publishing, and notification persistence use role-aware RLS policies. Admins and sales managers can review organization attendance while other members see only their own record and private evidence. Social post management and media uploads are restricted to admins and social media managers. Notification recipients can read and mark their own notifications without creating or changing another user's feed.
+
 ## Social Media Calendar
 
 The social media workspace stores tenant-scoped drafts and schedules, uploads post assets to the `social-media` bucket, supports internal publishing notes, and provides an AI caption helper. The protected `/api/social-posts` route handles calendar reads, draft creation, caption updates, and publish actions. Publishing runs in dry-run mode unless `SOCIAL_PUBLISH_DRY_RUN=false` and `SOCIAL_PUBLISH_WEBHOOK_URL` points to a Zapier, Make, SocialPilot, Buffer, or custom automation endpoint.

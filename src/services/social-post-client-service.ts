@@ -9,6 +9,10 @@ export async function getOrganizationSocialPosts(identity: WorkspaceIdentity) {
     throw new Error("Demo social posts are stored locally.");
   }
 
+  if (!["admin", "social_media_manager"].includes(identity.role)) {
+    return { posts: [] };
+  }
+
   return requestSocialApi<{ posts: SocialPost[] }>("GET");
 }
 

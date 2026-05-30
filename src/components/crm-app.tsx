@@ -376,6 +376,11 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   };
 
   const openTool = (tool: WorkspaceTool) => {
+    if (!canAccessWorkspaceTool(identity, tool)) {
+      notify("This workspace tool is not available for your role");
+      return;
+    }
+
     setActive("more");
     setActiveTool(tool);
   };
@@ -824,8 +829,8 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           {nav.map((item) => <NavButton key={item.key} item={item} active={active} setActive={navigate} />)}
           <p className="mb-3 mt-8 px-3 text-[10px] font-bold tracking-[0.16em] text-[#a0aaa5]">WORKSPACE</p>
           <SideItem label="Team" icon={UserCheck} onClick={() => openTool("team")} />
-          <SideItem label="Site visits" icon={MapPin} onClick={() => openTool("site-visits")} />
-          <SideItem label="Reports" icon={BarChart3} onClick={() => openTool("reports")} />
+          {canAccessWorkspaceTool(identity, "site-visits") && <SideItem label="Site visits" icon={MapPin} onClick={() => openTool("site-visits")} />}
+          {canAccessWorkspaceTool(identity, "reports") && <SideItem label="Reports" icon={BarChart3} onClick={() => openTool("reports")} />}
           <SideItem label="Integrations" icon={Zap} onClick={() => openTool("integrations")} />
           <SideItem label="Settings" icon={Settings} onClick={() => openTool("settings")} />
         </nav>
@@ -868,7 +873,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           {active === "leads" && <LeadsPage search={search} setSearch={setSearch} leadFilter={leadFilter} setLeadFilter={setLeadFilter} leads={filteredLeads} canAddLead={canAddLead} setSelectedLead={setSelectedLead} openForm={setFormDialog} />}
           {active === "properties" && <PropertiesPage properties={crmProperties} leads={crmLeads} canManageInventory={canManageInventory} openForm={setFormDialog} setSelectedProperty={setSelectedProperty} />}
           {active === "followups" && <FollowupsPage followups={crmFollowups} analytics={analytics} completeFollowup={completeFollowup} sendQuickFollowup={sendQuickFollowup} snoozeFollowup={snoozeFollowup} openForm={setFormDialog} notify={notify} />}
-          {active === "more" && !activeTool && <MorePage attendance={attendance} settings={settings} canManageTeam={identity.isDemo || identity.role === "admin"} openTool={openTool} openForm={setFormDialog} />}
+          {active === "more" && !activeTool && <MorePage identity={identity} attendance={attendance} settings={settings} canManageTeam={identity.isDemo || identity.role === "admin"} openTool={openTool} openForm={setFormDialog} />}
           {active === "more" && activeTool && <WorkspaceToolView tool={activeTool} identity={identity} analytics={analytics} attendance={attendance} attendanceHistory={attendanceHistory} updateAttendance={updateAttendance} siteVisits={siteVisits} updateSiteVisit={updateSiteVisit} socialPosts={socialPosts} publishSocialPost={publishSocialPost} draftSocialPostCaption={draftSocialPostCaption} leads={crmLeads} properties={crmProperties} members={members} updateTeamMember={updateTeamMember} settings={settings} setSettings={identity.isDemo ? setDemoIntegrationSettings : setRemoteIntegrationSettings} saveIntegrationSettings={saveIntegrationSettings} workspaceSettings={workspaceSettings} setWorkspaceSettings={identity.isDemo ? setDemoWorkspaceSettings : setRemoteWorkspaceSettings} saveWorkspaceSettings={saveWorkspaceSettings} back={() => setActiveTool(null)} openSiteVisitForm={() => setFormDialog({ kind: "site-visit" })} openSocialForm={() => setFormDialog({ kind: "social" })} openMemberForm={() => setFormDialog({ kind: "member" })} notify={notify} />}
         </main>
       </div>
@@ -1159,7 +1164,18 @@ function getFollowupProgressDegrees(analytics: AnalyticsSnapshot) {
   return analytics.totalFollowups ? Math.round((analytics.completedFollowups / analytics.totalFollowups) * 360) : 0;
 }
 
-function MorePage({ attendance, settings, canManageTeam, openTool, openForm }: { attendance: typeof initialAttendance; settings: IntegrationSettings; canManageTeam: boolean; openTool: (tool: WorkspaceTool) => void; openForm: (state: FormDialogState) => void }) {
+function canAccessWorkspaceTool(identity: WorkspaceIdentity, tool: WorkspaceTool) {
+  if (identity.isDemo) {
+    return true;
+  }
+
+  if (tool === "site-visits") return ["admin", "sales_manager", "field_executive"].includes(identity.role);
+  if (tool === "social") return ["admin", "social_media_manager"].includes(identity.role);
+  if (tool === "reports") return ["admin", "sales_manager"].includes(identity.role);
+  return true;
+}
+
+function MorePage({ identity, attendance, settings, canManageTeam, openTool, openForm }: { identity: WorkspaceIdentity; attendance: typeof initialAttendance; settings: IntegrationSettings; canManageTeam: boolean; openTool: (tool: WorkspaceTool) => void; openForm: (state: FormDialogState) => void }) {
   const modules = [
     { label: "Site visits", copy: "Assign and close field walkthroughs", icon: MapPin, tool: "site-visits" },
     { label: "Attendance", copy: "Check in and track field teams", icon: UserCheck, tool: "attendance" },
@@ -1168,7 +1184,7 @@ function MorePage({ attendance, settings, canManageTeam, openTool, openForm }: {
     { label: "Team", copy: "Manage roles and members", icon: Users, tool: "team" },
     { label: "Integrations", copy: "Connect Twilio and messaging", icon: Zap, tool: "integrations" },
     { label: "Settings", copy: "Configure your workspace", icon: Settings, tool: "settings" },
-  ];
+  ].filter((module) => canAccessWorkspaceTool(identity, module.tool as WorkspaceTool));
   return <div>
     <PageHeading eyebrow="Workspace" title="More tools" copy="Operate your business from one place." action={canManageTeam ? "Invite member" : undefined} onAction={canManageTeam ? () => openForm({ kind: "member" }) : undefined} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{modules.map((module) => { const Icon = module.icon; return <button key={module.label} onClick={() => openTool(module.tool as WorkspaceTool)} className="flex items-center gap-4 rounded-2xl border border-[#e5e9e4] bg-white p-4 text-left transition hover:border-[#bdd6cb] hover:shadow-sm"><div className="grid h-11 w-11 place-items-center rounded-xl bg-[#e7f3ed] text-[#176b4d]"><Icon size={19} /></div><div className="flex-1"><p className="text-sm font-bold">{module.label}</p><p className="mt-1 text-xs text-[#85918d]">{module.copy}</p></div><ChevronRight className="text-[#aab4b0]" size={16} /></button>; })}</div>

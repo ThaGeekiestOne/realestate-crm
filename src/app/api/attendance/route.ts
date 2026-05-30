@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { ProfileRole } from "@/lib/auth-types";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 const attendanceSchema = z.object({
@@ -34,7 +35,7 @@ async function getRequestContext(request: Request) {
     .from("profiles")
     .select("id, organization_id, full_name, role")
     .eq("id", authData.user.id)
-    .single();
+    .single<{ id: string; organization_id: string; full_name: string; role: ProfileRole }>();
 
   return profileError || !profile ? null : { supabase, profile };
 }
@@ -49,18 +50,27 @@ export async function GET(request: Request) {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
+  const canViewOrganizationAttendance = ["admin", "sales_manager"].includes(context.profile.role);
+  let profilesQuery = context.supabase
+    .from("profiles")
+    .select("id, full_name, role")
+    .eq("organization_id", context.profile.organization_id)
+    .order("full_name");
+  let todayQuery = context.supabase
+    .from("attendance")
+    .select("id, user_id, check_in_time, check_out_time, check_in_latitude, check_in_longitude, check_out_latitude, check_out_longitude, status, notes, selfie_storage_path")
+    .eq("organization_id", context.profile.organization_id)
+    .gte("check_in_time", startOfToday.toISOString())
+    .order("check_in_time", { ascending: false });
+
+  if (!canViewOrganizationAttendance) {
+    profilesQuery = profilesQuery.eq("id", context.profile.id);
+    todayQuery = todayQuery.eq("user_id", context.profile.id);
+  }
+
   const [{ data: profiles, error: profilesError }, { data: today, error: todayError }, { data: history, error: historyError }] = await Promise.all([
-    context.supabase
-      .from("profiles")
-      .select("id, full_name, role")
-      .eq("organization_id", context.profile.organization_id)
-      .order("full_name"),
-    context.supabase
-      .from("attendance")
-      .select("id, user_id, check_in_time, check_out_time, check_in_latitude, check_in_longitude, check_out_latitude, check_out_longitude, status, notes, selfie_storage_path")
-      .eq("organization_id", context.profile.organization_id)
-      .gte("check_in_time", startOfToday.toISOString())
-      .order("check_in_time", { ascending: false }),
+    profilesQuery,
+    todayQuery,
     context.supabase
       .from("attendance")
       .select("id, check_in_time, check_out_time, check_in_latitude, check_in_longitude, check_out_latitude, check_out_longitude, notes, selfie_storage_path")
