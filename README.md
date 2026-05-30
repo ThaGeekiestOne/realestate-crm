@@ -58,7 +58,7 @@ The inventory workspace supports structured property creation, search, status/ty
 
 ## One-Click Follow-Ups
 
-The follow-up queue supports reusable message templates, one-click WhatsApp, SMS, and email dispatch, call reminders, 30-minute snoozes, and completion. The protected `/api/followups/actions` route validates the signed-in workspace, sends through the server-side provider adapters, and records message and activity audit entries. Dry-run mode keeps the full workflow usable without provider credentials.
+The follow-up queue supports reusable message templates, one-click WhatsApp, SMS, and email dispatch, call reminders, 30-minute snoozes, and completion. Scheduling uses a selected lead UUID so duplicate names cannot attach a task to the wrong buyer. The protected `/api/followups/actions` route validates scheduling, completion, sends, and snoozes against the signed-in workspace before recording notification, message, and activity audit entries. Dry-run mode keeps the full workflow usable without provider credentials.
 
 ## Notifications
 

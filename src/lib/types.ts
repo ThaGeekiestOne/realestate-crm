@@ -81,6 +81,7 @@ export interface PropertyDocument {
 export interface Followup {
   id: string;
   lead: string;
+  leadId?: string;
   initials: string;
   purpose: string;
   time: string;

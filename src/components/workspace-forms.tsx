@@ -131,10 +131,12 @@ export function WorkspaceFormDialog({ state, close, leads, members, addLead, add
       <form className="mt-5 grid gap-3 sm:grid-cols-2" onSubmit={(event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
-        const lead = String(data.get("lead"));
+        const leadId = String(data.get("leadId"));
+        const lead = leads.find((item) => item.id === leadId)?.name ?? "Unassigned lead";
         addFollowup({
           id: `FU-${Date.now().toString().slice(-4)}`,
           lead,
+          leadId,
           initials: lead.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase(),
           purpose: String(data.get("purpose")),
           time: String(data.get("time")),
@@ -142,7 +144,7 @@ export function WorkspaceFormDialog({ state, close, leads, members, addLead, add
           temperature: "Warm",
         });
       }}>
-        <Field label="Lead"><input required name="lead" className={inputClass} defaultValue={state.lead?.name} placeholder="Lead name" /></Field>
+        <Field label="Lead"><select required name="leadId" className={inputClass} defaultValue={state.lead?.id}>{leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.name}</option>)}</select></Field>
         <Field label="Time"><input required name="time" className={inputClass} placeholder="Tomorrow, 11:00 AM" /></Field>
         <Field label="Channel"><select name="channel" className={inputClass}>{["Call", "WhatsApp", "SMS", "Email", "Site visit"].map((value) => <option key={value}>{value}</option>)}</select></Field>
         <Field label="Purpose"><input required name="purpose" className={inputClass} placeholder="Discuss shortlisted options" /></Field>

@@ -76,14 +76,12 @@ import {
 import { WorkspaceToolView } from "@/components/workspace-tools";
 import type { WorkspaceIdentity } from "@/lib/auth-types";
 import {
-  completeOrganizationFollowup,
-  createOrganizationFollowup,
   createOrganizationLead,
   createOrganizationProperty,
   getOrganizationWorkspaceSnapshot,
 } from "@/services/crm-data-service";
 import { shareLeadProperty, type PropertyShareChannel } from "@/services/property-share-client-service";
-import { sendLeadFollowup, snoozeLeadFollowup } from "@/services/followup-client-service";
+import { completeLeadFollowup, scheduleLeadFollowup, sendLeadFollowup, snoozeLeadFollowup } from "@/services/followup-client-service";
 import {
   createOrganizationSocialPost,
   draftDemoSocialCaption,
@@ -296,6 +294,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   const notifications = identity.isDemo ? demoNotifications : remoteNotifications;
   const unreadNotifications = notifications.filter((notification) => !notification.read).length;
   const canAddLead = identity.isDemo || ["admin", "sales_manager", "sales_agent"].includes(identity.role);
+  const canScheduleFollowup = identity.isDemo || ["admin", "sales_manager", "sales_agent"].includes(identity.role);
   const canManageInventory = identity.isDemo || ["admin", "sales_manager"].includes(identity.role);
   const attendance = identity.isDemo ? demoAttendance : remoteAttendance;
   const attendanceHistory = identity.isDemo ? demoAttendanceHistory : remoteAttendanceHistory;
@@ -541,7 +540,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
 
   const addFollowup = async (followup: typeof crmFollowups[number]) => {
     try {
-      const createdFollowup = identity.isDemo ? followup : await createOrganizationFollowup(identity, followup);
+      const createdFollowup = await scheduleLeadFollowup(identity, followup);
       if (identity.isDemo) {
         setDemoFollowups([createdFollowup, ...demoFollowups]);
       } else {
@@ -565,7 +564,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
       if (identity.isDemo) {
         setDemoFollowups(demoFollowups.filter((followup) => followup.id !== followupId));
       } else {
-        await completeOrganizationFollowup(identity, followupId);
+        await completeLeadFollowup(identity, followupId);
         setRemoteFollowups(remoteFollowups.filter((followup) => followup.id !== followupId));
       }
       notify(`${lead} marked complete`);
@@ -872,7 +871,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           {active === "dashboard" && <Dashboard identity={identity} leads={crmLeads} followups={crmFollowups} analytics={analytics} canAddLead={canAddLead} setActive={navigate} openTool={openTool} openForm={setFormDialog} setSelectedLead={setSelectedLead} />}
           {active === "leads" && <LeadsPage search={search} setSearch={setSearch} leadFilter={leadFilter} setLeadFilter={setLeadFilter} leads={filteredLeads} canAddLead={canAddLead} setSelectedLead={setSelectedLead} openForm={setFormDialog} />}
           {active === "properties" && <PropertiesPage properties={crmProperties} leads={crmLeads} canManageInventory={canManageInventory} openForm={setFormDialog} setSelectedProperty={setSelectedProperty} />}
-          {active === "followups" && <FollowupsPage followups={crmFollowups} analytics={analytics} completeFollowup={completeFollowup} sendQuickFollowup={sendQuickFollowup} snoozeFollowup={snoozeFollowup} openForm={setFormDialog} notify={notify} />}
+          {active === "followups" && <FollowupsPage followups={crmFollowups} analytics={analytics} canSchedule={canScheduleFollowup} completeFollowup={completeFollowup} sendQuickFollowup={sendQuickFollowup} snoozeFollowup={snoozeFollowup} openForm={setFormDialog} notify={notify} />}
           {active === "more" && !activeTool && <MorePage identity={identity} attendance={attendance} settings={settings} canManageTeam={identity.isDemo || identity.role === "admin"} openTool={openTool} openForm={setFormDialog} />}
           {active === "more" && activeTool && <WorkspaceToolView tool={activeTool} identity={identity} analytics={analytics} attendance={attendance} attendanceHistory={attendanceHistory} updateAttendance={updateAttendance} siteVisits={siteVisits} updateSiteVisit={updateSiteVisit} socialPosts={socialPosts} publishSocialPost={publishSocialPost} draftSocialPostCaption={draftSocialPostCaption} leads={crmLeads} properties={crmProperties} members={members} updateTeamMember={updateTeamMember} settings={settings} setSettings={identity.isDemo ? setDemoIntegrationSettings : setRemoteIntegrationSettings} saveIntegrationSettings={saveIntegrationSettings} workspaceSettings={workspaceSettings} setWorkspaceSettings={identity.isDemo ? setDemoWorkspaceSettings : setRemoteWorkspaceSettings} saveWorkspaceSettings={saveWorkspaceSettings} back={() => setActiveTool(null)} openSiteVisitForm={() => setFormDialog({ kind: "site-visit" })} openSocialForm={() => setFormDialog({ kind: "social" })} openMemberForm={() => setFormDialog({ kind: "member" })} notify={notify} />}
         </main>
@@ -1098,9 +1097,10 @@ function InventoryFilter({ label, value, setValue, options }: { label: string; v
   return <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#9aa5a1]">{label}<select value={value} onChange={(event) => setValue(event.target.value)} className={drawerInputClass}>{options.map((option) => <option key={option}>{option}</option>)}</select></label>;
 }
 
-function FollowupsPage({ followups, analytics, completeFollowup, sendQuickFollowup, snoozeFollowup, openForm, notify }: {
+function FollowupsPage({ followups, analytics, canSchedule, completeFollowup, sendQuickFollowup, snoozeFollowup, openForm, notify }: {
   followups: Followup[];
   analytics: AnalyticsSnapshot;
+  canSchedule: boolean;
   completeFollowup: (id: string, lead: string) => Promise<void>;
   sendQuickFollowup: (followup: Followup, channel: FollowupMessageChannel, templateId: FollowupTemplateId) => Promise<void>;
   snoozeFollowup: (followup: Followup) => Promise<void>;
@@ -1110,15 +1110,15 @@ function FollowupsPage({ followups, analytics, completeFollowup, sendQuickFollow
   const [selectedTemplateId, setSelectedTemplateId] = useState<FollowupTemplateId>("review-property");
 
   return <div>
-    <PageHeading eyebrow="Daily queue" title="Follow-ups" copy="Keep every active conversation moving forward." action="Schedule" onAction={() => openForm({ kind: "followup" })} />
-    <div className="grid gap-5 xl:grid-cols-[1fr_290px]">
-      <div className="rounded-2xl border border-[#e6eae5] bg-white p-4">
+    <PageHeading eyebrow="Daily queue" title="Follow-ups" copy="Keep every active conversation moving forward." action={canSchedule ? "Schedule" : undefined} onAction={canSchedule ? () => openForm({ kind: "followup" }) : undefined} />
+    <div className="grid min-w-0 gap-5 xl:grid-cols-[1fr_290px]">
+      <div className="min-w-0 rounded-2xl border border-[#e6eae5] bg-white p-4">
         <div className="flex items-center justify-between border-b border-[#edf0ec] pb-3"><p className="text-sm font-bold">Today&apos;s queue</p><Badge tone="amber">{followups.length} pending</Badge></div>
         <div className="divide-y divide-[#edf0ec]">{followups.map((item, index) => <div key={item.id} className="flex items-center gap-3 py-4"><Avatar initials={item.initials} index={index} /><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate text-xs font-bold">{item.lead}</p>{item.overdue && <Badge tone="red">Overdue</Badge>}</div><p className="mt-1 truncate text-[11px] text-[#87938e]">{item.purpose}</p><p className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-[#65736e]"><Clock3 size={11} />{item.time} · {item.channel}</p></div><button aria-label={`Complete follow-up for ${item.lead}`} onClick={() => void completeFollowup(item.id, item.lead)} className="grid h-9 w-9 place-items-center rounded-full border border-[#dce6e0] text-[#26815f]"><CheckCircle2 size={17} /></button></div>)}</div>
         {!!followups.length && <div className="mt-4 space-y-2 border-t border-[#edf0ec] pt-4">{followups.map((item) => <FollowupActionTray key={item.id} item={item} templateId={selectedTemplateId} sendQuickFollowup={sendQuickFollowup} snoozeFollowup={snoozeFollowup} notify={notify} />)}</div>}
         {!followups.length && <div className="py-12 text-center"><CheckCircle2 className="mx-auto text-[#78a895]" size={24} /><p className="mt-3 text-sm font-bold">Follow-up queue cleared</p><p className="mt-1 text-xs text-[#89958f]">Schedule the next conversation when needed.</p></div>}
       </div>
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         <section className="rounded-2xl border border-[#e6eae5] bg-white p-4"><p className="text-sm font-bold">Queue progress</p><div className="mt-5 grid place-items-center"><div className="grid h-32 w-32 place-items-center rounded-full" style={{ background: `conic-gradient(#176b4d 0deg ${getFollowupProgressDegrees(analytics)}deg, #edf1ee ${getFollowupProgressDegrees(analytics)}deg 360deg)` }}><div className="grid h-24 w-24 place-items-center rounded-full bg-white text-center"><div><p className="text-2xl font-bold">{analytics.completedFollowups}</p><p className="text-[10px] text-[#86928e]">of {analytics.totalFollowups} done</p></div></div></div></div></section>
         <section className="rounded-2xl bg-[#1c493a] p-4 text-white"><MessageCircle size={18} /><p className="mt-4 text-sm font-bold">Quick templates</p><p className="mt-1 text-xs leading-5 text-white/70">Choose the message used by WhatsApp, SMS, and email actions.</p><div className="mt-4 space-y-2">{followupTemplates.map((template) => <button key={template.id} onClick={() => { setSelectedTemplateId(template.id); notify(`${template.title} template selected`); }} className={`w-full rounded-lg px-3 py-2 text-left text-xs font-bold transition ${selectedTemplateId === template.id ? "bg-white text-[#1c493a]" : "bg-white/10 text-white hover:bg-white/15"}`}>{template.title}</button>)}</div></section>
       </div>

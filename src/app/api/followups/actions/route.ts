@@ -22,7 +22,20 @@ const snoozeSchema = z.object({
   minutes: z.number().int().min(15).max(1440),
 });
 
-const actionSchema = z.discriminatedUnion("action", [sendSchema, snoozeSchema]);
+const scheduleSchema = z.object({
+  action: z.literal("schedule"),
+  leadId: z.string().uuid(),
+  purpose: z.string().trim().min(2).max(500),
+  dueAt: z.string().datetime(),
+  channel: z.enum(["call", "whatsapp", "sms", "email", "site_visit"]),
+});
+
+const completeSchema = z.object({
+  action: z.literal("complete"),
+  followupId: z.string().uuid(),
+});
+
+const actionSchema = z.discriminatedUnion("action", [sendSchema, snoozeSchema, scheduleSchema, completeSchema]);
 
 function getBearerToken(request: Request) {
   return request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -66,6 +79,58 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Workspace profile not found" }, { status: 403 });
   }
 
+  if (parsed.data.action === "schedule") {
+    const { data: lead, error: leadError } = await supabase
+      .from("leads")
+      .select("id, full_name, temperature, assigned_agent_id")
+      .eq("id", parsed.data.leadId)
+      .eq("organization_id", profile.organization_id)
+      .single<{ id: string; full_name: string; temperature: string; assigned_agent_id: string | null }>();
+
+    if (leadError || !lead || !canAccessLead(profile.role, profile.id, lead.assigned_agent_id)) {
+      return NextResponse.json({ error: "Lead not found or not assigned to you" }, { status: 404 });
+    }
+
+    const assignedTo = lead.assigned_agent_id ?? profile.id;
+    const { data: followup, error } = await supabase
+      .from("followups")
+      .insert({
+        organization_id: profile.organization_id,
+        lead_id: lead.id,
+        assigned_to: assignedTo,
+        due_at: parsed.data.dueAt,
+        channel: parsed.data.channel,
+        notes: parsed.data.purpose,
+      })
+      .select("id, lead_id, due_at, channel, notes")
+      .single<{ id: string; lead_id: string; due_at: string; channel: string | null; notes: string | null }>();
+
+    if (error || !followup) {
+      return NextResponse.json({ error: error?.message ?? "Unable to schedule follow-up" }, { status: 500 });
+    }
+
+    await Promise.all([
+      supabase.from("notifications").insert({
+        organization_id: profile.organization_id,
+        user_id: assignedTo,
+        notification_type: "followup_due",
+        title: "Follow-up scheduled",
+        body: `${lead.full_name} follow-up is due ${formatDateTime(followup.due_at)}.`,
+        metadata: { followupId: followup.id, leadId: lead.id },
+      }),
+      supabase.from("activities").insert({
+        organization_id: profile.organization_id,
+        lead_id: lead.id,
+        actor_id: profile.id,
+        activity_type: "followup_scheduled",
+        description: `${lead.full_name} follow-up scheduled`,
+        metadata: { followupId: followup.id, dueAt: followup.due_at, channel: followup.channel },
+      }),
+    ]);
+
+    return NextResponse.json({ followup: mapFollowup(followup, lead) }, { status: 201 });
+  }
+
   const { data: followup, error: followupError } = await supabase
     .from("followups")
     .select("id, lead_id, leads!inner(id, full_name, phone, email, preferred_location, assigned_agent_id)")
@@ -82,6 +147,30 @@ export async function POST(request: Request) {
 
   if (!canAccessLead(profile.role, profile.id, lead.assigned_agent_id)) {
     return NextResponse.json({ error: "Follow-up not found or not assigned to you" }, { status: 404 });
+  }
+
+  if (parsed.data.action === "complete") {
+    const completedAt = new Date().toISOString();
+    const { error } = await supabase
+      .from("followups")
+      .update({ completed_at: completedAt })
+      .eq("id", followup.id)
+      .eq("organization_id", profile.organization_id);
+
+    if (error) {
+      return NextResponse.json({ error: "Unable to complete follow-up" }, { status: 500 });
+    }
+
+    await supabase.from("activities").insert({
+      organization_id: profile.organization_id,
+      lead_id: lead.id,
+      actor_id: profile.id,
+      activity_type: "followup_completed",
+      description: "Follow-up marked complete",
+      metadata: { followupId: followup.id, completedAt },
+    });
+
+    return NextResponse.json({ status: "completed" });
   }
 
   if (parsed.data.action === "snooze") {
@@ -153,4 +242,35 @@ export async function POST(request: Request) {
     console.error("Follow-up dispatch failed", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Follow-up dispatch failed" }, { status: 502 });
   }
+}
+
+function mapFollowup(followup: { id: string; lead_id: string; due_at: string; channel: string | null; notes: string | null }, lead: { full_name: string; temperature: string }) {
+  return {
+    id: followup.id,
+    lead: lead.full_name,
+    leadId: followup.lead_id,
+    initials: lead.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase(),
+    purpose: followup.notes ?? "Scheduled follow-up",
+    time: formatDateTime(followup.due_at),
+    channel: followup.channel === "whatsapp"
+      ? "WhatsApp"
+      : followup.channel === "sms"
+        ? "SMS"
+        : followup.channel === "email"
+          ? "Email"
+          : followup.channel === "site_visit"
+            ? "Site visit"
+            : "Call",
+    temperature: ["Hot", "Warm", "Cold"].includes(lead.temperature) ? lead.temperature : "Warm",
+    overdue: new Date(followup.due_at).getTime() < Date.now(),
+  };
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 }

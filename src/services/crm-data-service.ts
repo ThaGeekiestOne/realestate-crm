@@ -46,6 +46,7 @@ interface PropertyRecord {
 
 interface FollowupRecord {
   id: string;
+  lead_id: string;
   due_at: string;
   channel: string | null;
   notes: string | null;
@@ -87,13 +88,6 @@ export interface CreateOrganizationPropertyInput {
   amenities?: string[];
   notes?: string;
   internalTags?: string[];
-}
-
-export interface CreateOrganizationFollowupInput {
-  lead: string;
-  purpose: string;
-  time: string;
-  channel: Followup["channel"];
 }
 
 function requireSupabase() {
@@ -155,36 +149,6 @@ function parseBudget(value: string) {
     budgetMin: min,
     budgetMax: max ?? min,
   };
-}
-
-function parseFollowupTime(value: string) {
-  const normalized = value.trim();
-  const relativeMatch = normalized.match(/^(today|tomorrow),?\s+(.+)$/i);
-
-  if (relativeMatch) {
-    const date = new Date();
-    if (relativeMatch[1].toLowerCase() === "tomorrow") {
-      date.setDate(date.getDate() + 1);
-    }
-
-    const time = relativeMatch[2].match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
-    if (time) {
-      let hours = Number(time[1]) % 12;
-      if (time[3].toLowerCase() === "pm") {
-        hours += 12;
-      }
-
-      date.setHours(hours, Number(time[2] ?? 0), 0, 0);
-      return date.toISOString();
-    }
-  }
-
-  const timestamp = Date.parse(normalized);
-  if (Number.isNaN(timestamp)) {
-    throw new Error("Enter a follow-up time such as Tomorrow, 11:00 AM.");
-  }
-
-  return new Date(timestamp).toISOString();
 }
 
 function formatDateTime(value: string | null) {
@@ -293,6 +257,7 @@ function mapFollowup(record: FollowupRecord): Followup {
   return {
     id: record.id,
     lead: name,
+    leadId: record.lead_id,
     initials: getInitials(name),
     purpose: record.notes ?? "Scheduled follow-up",
     time: formatDateTime(record.due_at),
@@ -326,7 +291,7 @@ export async function getOrganizationWorkspaceSnapshot(identity: WorkspaceIdenti
       .order("created_at", { ascending: false }),
     supabase
       .from("followups")
-      .select("id, due_at, channel, notes, leads(full_name, temperature)")
+      .select("id, lead_id, due_at, channel, notes, leads(full_name, temperature)")
       .eq("organization_id", identity.organizationId)
       .is("completed_at", null)
       .order("due_at", { ascending: true }),
@@ -498,73 +463,4 @@ function getStorageFileName(storagePath: string) {
 function sanitizeFileName(fileName: string, fallbackExtension: string) {
   const sanitized = fileName.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
   return sanitized || `property-document.${fallbackExtension}`;
-}
-
-export async function createOrganizationFollowup(identity: WorkspaceIdentity, input: CreateOrganizationFollowupInput) {
-  const supabase = requireSupabase();
-  const { data: lead, error: leadError } = await supabase
-    .from("leads")
-    .select("id")
-    .eq("organization_id", identity.organizationId)
-    .ilike("full_name", input.lead)
-    .limit(1)
-    .single<{ id: string }>();
-
-  if (leadError) {
-    throw new Error("Select an existing lead before scheduling a follow-up.");
-  }
-
-  const channel = input.channel === "WhatsApp"
-    ? "whatsapp"
-    : input.channel === "SMS"
-      ? "sms"
-      : input.channel === "Email"
-        ? "email"
-        : input.channel === "Site visit"
-          ? "site_visit"
-          : "call";
-  const { data, error } = await supabase
-    .from("followups")
-    .insert({
-      organization_id: identity.organizationId,
-      lead_id: lead.id,
-      assigned_to: identity.id,
-      due_at: parseFollowupTime(input.time),
-      channel,
-      notes: input.purpose,
-    })
-    .select("id, due_at, channel, notes, leads(full_name, temperature)")
-    .single<FollowupRecord>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const { error: notificationError } = await supabase.from("notifications").insert({
-    organization_id: identity.organizationId,
-    user_id: identity.id,
-    notification_type: "followup_due",
-    title: "Follow-up scheduled",
-    body: `${name} follow-up is due ${formatDateTime(data.due_at)}.`,
-    metadata: { followupId: data.id, leadId: lead.id },
-  });
-
-  if (notificationError) {
-    console.error("Unable to create follow-up notification", notificationError);
-  }
-
-  return mapFollowup(data);
-}
-
-export async function completeOrganizationFollowup(identity: WorkspaceIdentity, followupId: string) {
-  const supabase = requireSupabase();
-  const { error } = await supabase
-    .from("followups")
-    .update({ completed_at: new Date().toISOString() })
-    .eq("organization_id", identity.organizationId)
-    .eq("id", followupId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
 }
