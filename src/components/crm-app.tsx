@@ -48,7 +48,7 @@ import {
   socialPosts as initialSocialPosts,
   teamMembers as initialTeamMembers,
 } from "@/lib/demo-data";
-import { usePersistentState } from "@/lib/use-persistent-state";
+import { resetEstateFlowDemoState, usePersistentState } from "@/lib/use-persistent-state";
 import type {
   Followup,
   AttendanceHistoryRecord,
@@ -402,6 +402,15 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
 
     const snapshot = await updateOrganizationWorkspaceSettings(identity, nextSettings);
     setRemoteWorkspaceSettings(snapshot.workspace);
+  };
+
+  const resetDemoData = () => {
+    if (!window.confirm("Reset all demo changes and restore the seeded EstateFlow workspace?")) {
+      return;
+    }
+
+    resetEstateFlowDemoState();
+    window.location.reload();
   };
 
   const filteredLeads = useMemo(() => crmLeads.filter((lead) => {
@@ -873,7 +882,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           {active === "properties" && <PropertiesPage properties={crmProperties} leads={crmLeads} canManageInventory={canManageInventory} openForm={setFormDialog} setSelectedProperty={setSelectedProperty} />}
           {active === "followups" && <FollowupsPage followups={crmFollowups} analytics={analytics} canSchedule={canScheduleFollowup} completeFollowup={completeFollowup} sendQuickFollowup={sendQuickFollowup} snoozeFollowup={snoozeFollowup} openForm={setFormDialog} notify={notify} />}
           {active === "more" && !activeTool && <MorePage identity={identity} attendance={attendance} settings={settings} canManageTeam={identity.isDemo || identity.role === "admin"} openTool={openTool} openForm={setFormDialog} />}
-          {active === "more" && activeTool && <WorkspaceToolView tool={activeTool} identity={identity} analytics={analytics} attendance={attendance} attendanceHistory={attendanceHistory} updateAttendance={updateAttendance} siteVisits={siteVisits} updateSiteVisit={updateSiteVisit} socialPosts={socialPosts} publishSocialPost={publishSocialPost} draftSocialPostCaption={draftSocialPostCaption} leads={crmLeads} properties={crmProperties} members={members} updateTeamMember={updateTeamMember} settings={settings} setSettings={identity.isDemo ? setDemoIntegrationSettings : setRemoteIntegrationSettings} saveIntegrationSettings={saveIntegrationSettings} workspaceSettings={workspaceSettings} setWorkspaceSettings={identity.isDemo ? setDemoWorkspaceSettings : setRemoteWorkspaceSettings} saveWorkspaceSettings={saveWorkspaceSettings} back={() => setActiveTool(null)} openSiteVisitForm={() => setFormDialog({ kind: "site-visit" })} openSocialForm={() => setFormDialog({ kind: "social" })} openMemberForm={() => setFormDialog({ kind: "member" })} notify={notify} />}
+          {active === "more" && activeTool && <WorkspaceToolView tool={activeTool} identity={identity} analytics={analytics} attendance={attendance} attendanceHistory={attendanceHistory} updateAttendance={updateAttendance} siteVisits={siteVisits} updateSiteVisit={updateSiteVisit} socialPosts={socialPosts} publishSocialPost={publishSocialPost} draftSocialPostCaption={draftSocialPostCaption} leads={crmLeads} properties={crmProperties} members={members} updateTeamMember={updateTeamMember} settings={settings} setSettings={identity.isDemo ? setDemoIntegrationSettings : setRemoteIntegrationSettings} saveIntegrationSettings={saveIntegrationSettings} workspaceSettings={workspaceSettings} setWorkspaceSettings={identity.isDemo ? setDemoWorkspaceSettings : setRemoteWorkspaceSettings} saveWorkspaceSettings={saveWorkspaceSettings} resetDemoData={identity.isDemo ? resetDemoData : undefined} back={() => setActiveTool(null)} openSiteVisitForm={() => setFormDialog({ kind: "site-visit" })} openSocialForm={() => setFormDialog({ kind: "social" })} openMemberForm={() => setFormDialog({ kind: "member" })} notify={notify} />}
         </main>
       </div>
 

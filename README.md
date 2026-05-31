@@ -12,6 +12,8 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). When the public Supabase values are blank, the UI opens in local demo mode and stores interactive prototype changes in browser storage. When they are configured, the app requires a Supabase email/password session, loads the signed-in organization's leads, properties, and follow-ups through RLS, and persists manual lead creation, property creation, follow-up scheduling, and follow-up completion. Provider credentials are optional locally because `TWILIO_DRY_RUN=true` by default.
 
+Demo mode includes a confirmed **Reset demo data** action under **More > Settings**. It clears only `estateflow.*` browser-storage entries and reloads the seeded workspace.
+
 ## Available Commands
 
 ```bash

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+const estateFlowStoragePrefix = "estateflow.";
+
 export function usePersistentState<T>(key: string, initialValue: T) {
   const [value, setValue] = useState<T>(initialValue);
   const [hydrated, setHydrated] = useState(false);
@@ -31,4 +33,14 @@ export function usePersistentState<T>(key: string, initialValue: T) {
   }, [hydrated, key, value]);
 
   return [value, setValue] as const;
+}
+
+export function resetEstateFlowDemoState() {
+  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+    const key = window.localStorage.key(index);
+
+    if (key?.startsWith(estateFlowStoragePrefix)) {
+      window.localStorage.removeItem(key);
+    }
+  }
 }

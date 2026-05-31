@@ -206,7 +206,7 @@ function IntegrationToggle({ label, checked, update, disabled }: { label: string
   return <label className="flex items-center gap-3 rounded-xl bg-[#f7f8f5] p-3 text-xs font-bold text-[#586760]"><input disabled={disabled} type="checkbox" checked={checked} onChange={(event) => update(event.target.checked)} className="h-4 w-4 accent-[#176b4d]" />{label}</label>;
 }
 
-export function SettingsTool({ settings, setSettings, saveSettings, canManage, back, notify }: { settings: WorkspaceSettings; setSettings: (settings: WorkspaceSettings) => void; saveSettings: (settings: WorkspaceSettings) => Promise<void>; canManage: boolean; back: () => void; notify: (message: string) => void }) {
+export function SettingsTool({ settings, setSettings, saveSettings, resetDemoData, canManage, back, notify }: { settings: WorkspaceSettings; setSettings: (settings: WorkspaceSettings) => void; saveSettings: (settings: WorkspaceSettings) => Promise<void>; resetDemoData?: () => void; canManage: boolean; back: () => void; notify: (message: string) => void }) {
   const [submitting, setSubmitting] = useState(false);
   const save = async () => {
     setSubmitting(true);
@@ -225,6 +225,7 @@ export function SettingsTool({ settings, setSettings, saveSettings, canManage, b
     <ToolHeader eyebrow="Workspace" title="Settings" copy="Manage default CRM behavior for your organization." back={back} />
     <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="rounded-2xl border border-[#e5e9e4] bg-white p-5"><div className="flex items-center gap-3 border-b border-[#edf0ec] pb-4"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f3ed] text-[#176b4d]"><Settings size={18} /></div><div><h3 className="text-sm font-bold">Lead operations</h3><p className="mt-1 text-xs text-[#87938e]">Choose how new enquiries enter the sales queue.</p></div></div><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-[11px] font-bold text-[#65736e]">Organization name<input disabled={!canManage} className={`${inputClass} disabled:bg-[#f4f6f3] disabled:text-[#99a39f]`} value={settings.organizationName} onChange={(event) => setSettings({ ...settings, organizationName: event.target.value })} /></label><label className="text-[11px] font-bold text-[#65736e]">Lead assignment mode<select disabled={!canManage} className={`${inputClass} disabled:bg-[#f4f6f3] disabled:text-[#99a39f]`} value={settings.assignmentMode} onChange={(event) => setSettings({ ...settings, assignmentMode: event.target.value as WorkspaceSettings["assignmentMode"] })}><option value="round_robin">Round Robin</option><option value="manual">Manual</option><option value="least_busy">Least Busy Agent</option></select></label></div>{canManage ? <button disabled={submitting} className="mt-4 rounded-lg bg-[#176b4d] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-wait disabled:opacity-70">{submitting ? "Saving..." : "Save workspace"}</button> : <p className="mt-4 text-xs font-semibold text-[#87938e]">Only organization admins can change workspace settings.</p>}</form>
     <section className="mt-4 rounded-2xl border border-[#e5e9e4] bg-white p-5"><div className="flex gap-3"><ShieldCheck className="text-[#176b4d]" size={19} /><div><h3 className="text-sm font-bold">Organization data isolation</h3><p className="mt-1 text-xs leading-5 text-[#7c8984]">The Supabase migration includes organization-scoped Row Level Security policies for leads, calls, properties, and follow-ups.</p></div></div></section>
+    {resetDemoData && <section className="mt-4 rounded-2xl border border-[#f0d6d2] bg-white p-5"><h3 className="text-sm font-bold text-[#8d3f3d]">Reset demo workspace</h3><p className="mt-1 text-xs leading-5 text-[#87938e]">Remove browser-only EstateFlow changes and restore the seeded demo records.</p><button type="button" onClick={resetDemoData} className="mt-4 rounded-lg border border-[#e8c4bf] px-4 py-2.5 text-xs font-bold text-[#a34845]">Reset demo data</button></section>}
   </div>;
 }
 
@@ -250,6 +251,7 @@ export function WorkspaceToolView({ tool, ...props }: {
   workspaceSettings: WorkspaceSettings;
   setWorkspaceSettings: (settings: WorkspaceSettings) => void;
   saveWorkspaceSettings: (settings: WorkspaceSettings) => Promise<void>;
+  resetDemoData?: () => void;
   back: () => void;
   openSocialForm: () => void;
   openSiteVisitForm: () => void;
@@ -262,5 +264,5 @@ export function WorkspaceToolView({ tool, ...props }: {
   if (tool === "reports") return <ReportsTool leads={props.leads} analytics={props.analytics} back={props.back} />;
   if (tool === "team") return <TeamTool identity={props.identity} members={props.members} back={props.back} openForm={props.openMemberForm} updateMember={props.updateTeamMember} />;
   if (tool === "integrations") return <IntegrationsTool settings={props.settings} setSettings={props.setSettings} saveSettings={props.saveIntegrationSettings} canManage={props.identity.isDemo || props.identity.role === "admin"} back={props.back} notify={props.notify} />;
-  return <SettingsTool settings={props.workspaceSettings} setSettings={props.setWorkspaceSettings} saveSettings={props.saveWorkspaceSettings} canManage={props.identity.isDemo || props.identity.role === "admin"} back={props.back} notify={props.notify} />;
+  return <SettingsTool settings={props.workspaceSettings} setSettings={props.setWorkspaceSettings} saveSettings={props.saveWorkspaceSettings} resetDemoData={props.resetDemoData} canManage={props.identity.isDemo || props.identity.role === "admin"} back={props.back} notify={props.notify} />;
 }
