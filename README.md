@@ -1,8 +1,88 @@
 # EstateFlow CRM
 
-Mobile-first real estate sales CRM built with Next.js App Router, TypeScript, Tailwind CSS, and Supabase. The current phase provides Supabase email/password authentication, organization-aware RLS reads, property-photo storage, public property share pages, persistent local demo workflows, tenant-aware database migrations, local seed data, a validated lead intake webhook, and dry-run adapters for calls, messages, email, attendance, and social publishing.
+EstateFlow CRM is a mobile-first sales workspace for real estate teams. It brings incoming property enquiries, agent follow-ups, listing inventory, site visits, attendance, and sales reporting into one organization-scoped system.
 
-## Getting Started
+The application is built with Next.js, TypeScript, Tailwind CSS, Supabase, and provider adapters for Twilio and email delivery. It runs immediately in browser-based demo mode and can be connected to Supabase for authenticated multi-tenant operation.
+
+## The Problem
+
+Real estate teams receive leads from multiple sources such as MagicBricks, 99acres, Housing.com, social campaigns, website forms, and referrals. Those enquiries often land in separate inboxes or spreadsheets. By the time someone assigns the lead, calls the prospect, finds a suitable property, and schedules a follow-up, the prospect may already be speaking with another broker.
+
+EstateFlow CRM is designed to shorten that response loop:
+
+- Collect enquiries in one lead queue.
+- Assign webhook leads to available sales agents.
+- Start an agent-first bridge call so the team can contact new prospects quickly.
+- Match buyers with active inventory.
+- Share property details and photos through a public link.
+- Keep follow-ups, field visits, attendance, and sales reporting visible to the team.
+
+## Product Preview
+
+### Sales Dashboard
+
+![EstateFlow CRM dashboard](public/readme/dashboard-desktop.png)
+
+### Property Inventory
+
+![EstateFlow CRM property inventory](public/readme/inventory-desktop.png)
+
+### Mobile Lead Workspace
+
+<img src="public/readme/leads-mobile.png" alt="EstateFlow CRM mobile lead workspace" width="360" />
+
+## Core Workflow
+
+```mermaid
+flowchart LR
+    A[Portal, ad, or website lead] --> B[Lead intake webhook]
+    B --> C[Assign available sales agent]
+    C --> D[Call agent first]
+    D --> E[Connect agent and prospect]
+    E --> F[Log activity and follow-up]
+    F --> G[Match and share properties]
+    G --> H[Track visit, outcome, and reports]
+```
+
+## What It Includes
+
+| Area | Capabilities |
+| --- | --- |
+| Dashboard | Lead, call, follow-up, site-visit, inventory, attendance, pipeline, and recent-activity summaries |
+| Leads | Manual creation, webhook intake, search, filters, assignment, qualification, notes, timeline, hot-lead marking, calls, follow-ups, and property sharing |
+| Voice automation | Twilio agent-first bridge calls, conference flow, recording callback support, retry handling, call logs, and local dry-run mode |
+| Inventory | Property creation, search, filters, galleries, brochures, status updates, matching-lead counts, recommended properties, and protected deletion |
+| Property sharing | Public tokenized listing pages plus WhatsApp, SMS, and email dispatch adapters |
+| Follow-ups | Templates, one-click messages, call reminders, scheduling, completion, snoozing, and due notifications |
+| Field operations | GPS attendance, private selfie evidence, attendance history, site-visit assignment, notes, and completion |
+| Social media | Draft calendar, scheduled posts, media uploads, AI-caption placeholder, and optional publishing webhook |
+| Team management | Supabase invitations, role updates, agent availability, and organization-scoped access |
+| Reports | Lead sources, pipeline status, agent call activity, follow-up completion, property shares, conversion, inventory, and attendance |
+
+## Property Portal Imports
+
+EstateFlow currently imports **leads** through `POST /api/webhooks/leads`. Property listings can be created manually, uploaded with photos and documents, and shared from the CRM.
+
+Automatic listing synchronization from portals such as MagicBricks, 99acres, or Housing.com requires an authorized partner API, feed, or export file from the portal. Direct website scraping is intentionally not included because it is brittle and may violate portal terms. A production extension can add CSV import and authorized portal-sync adapters without changing the inventory model.
+
+## Roles And Data Isolation
+
+Every live workspace belongs to an organization. Supabase Row Level Security policies keep organization data isolated and limit operations by role:
+
+- **Admin / Business Owner**: manage the organization, team, inventory, integrations, and reports.
+- **Sales Manager**: manage leads, assignments, inventory, visits, and performance.
+- **Sales Agent**: work assigned leads, calls, shares, notes, and follow-ups.
+- **Field Executive**: record attendance and complete assigned site visits.
+- **Social Media Manager**: manage the content calendar and publishing workflow.
+
+Provider credentials stay server-side. The browser receives provisioning status, not secret values.
+
+## Quick Start
+
+Requirements:
+
+- Node.js 20+
+- npm
 
 ```bash
 npm install
@@ -10,9 +90,9 @@ copy .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). When the public Supabase values are blank, the UI opens in local demo mode and stores interactive prototype changes in browser storage. When they are configured, the app requires a Supabase email/password session, loads the signed-in organization's leads, properties, and follow-ups through RLS, and persists manual lead creation, property creation, follow-up scheduling, and follow-up completion. Provider credentials are optional locally because `TWILIO_DRY_RUN=true` by default.
+Open [http://localhost:3000](http://localhost:3000).
 
-Demo mode includes a confirmed **Reset demo data** action under **More > Settings**. It clears only `estateflow.*` browser-storage entries and reloads the seeded workspace.
+When public Supabase values are blank, the application opens in local demo mode and stores interactive changes under `estateflow.*` browser-storage keys. Use **More > Settings > Reset demo data** to restore the seeded workspace without removing unrelated browser data.
 
 ## Available Commands
 
@@ -23,120 +103,83 @@ npm run build   # Create the production build
 npm run start   # Serve the production build
 ```
 
-## Lead Webhook
+## Supabase Setup
 
-External lead providers can submit enquiries to `POST /api/webhooks/leads`.
+Create a Supabase project, copy the values described in `.env.example`, and apply the SQL migrations from `supabase/migrations/`.
 
-```bash
-curl -X POST http://localhost:3000/api/webhooks/leads \
-  -H "Content-Type: application/json" \
-  -H "x-webhook-secret: $LEAD_WEBHOOK_SECRET" \
-  -d '{"fullName":"Rahul Sharma","phone":"+919999999999","source":"36 Acre","propertyType":"Apartment","preferredLocation":"Gurgaon"}'
-```
-
-With Supabase values configured, the route validates the optional webhook secret, assigns an available agent through the database round-robin function, stores the lead, starts the bridge-call adapter, and logs the call, activity, and notification. Without Supabase values it returns a dry-run response for local UI development.
-
-## Twilio Voice Bridge
-
-Keep `TWILIO_DRY_RUN=true` while developing locally. To enable real calls:
-
-1. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER`.
-2. Set `NEXT_PUBLIC_APP_URL` to the public HTTPS deployment or tunnel URL that Twilio can reach.
-3. Set `TWILIO_DRY_RUN=false`.
-4. Keep `TWILIO_VALIDATE_SIGNATURES=true` so callback routes reject unsigned requests.
-5. Set `TWILIO_MAX_AGENT_ATTEMPTS` to control how many available agents are tried before the lead enters the manual follow-up queue.
-
-The lead webhook creates a call log before dialing the agent. Twilio then calls the generated `/api/twilio/voice/*` callback URLs to gather agent confirmation, dial the lead, join both parties into a recorded conference, and persist status, duration, and recording URL. If an agent is unavailable, the service retries the next round-robin agent before creating a missed-call follow-up and notifying managers.
-
-## Property Photos And Sharing
-
-The `property-media` and `property-documents` Supabase Storage buckets are created by migration and allow public reads while restricting uploads, updates, and deletes to the signed-in organization folder. Property creation accepts multiple photos plus brochures, floor plans, and payment schedules when Supabase is configured.
-
-From a lead drawer, choose **Property**, select a listing, and send a public tokenized share page via WhatsApp, SMS, or email. The protected `/api/property-shares` route validates the session, enforces organization ownership for the lead and property, dispatches through Twilio or Resend, and records the message and activity timeline event. Dry-run modes generate share records and provider IDs without sending external messages.
-
-## Inventory Operations
-
-The inventory workspace supports structured property creation, search, status/type/location filters, property detail drawers, photo galleries, brochure lists, availability updates, and protected deletion with Storage cleanup. Admins and sales managers can update inventory through `/api/properties/actions`; other organization members retain read access. Inventory cards calculate matching lead counts, and the lead drawer ranks shareable properties by type, location, and budget fit. Public tokenized property pages expose uploaded brochures alongside photos and listing details.
-
-## One-Click Follow-Ups
-
-The follow-up queue supports reusable message templates, one-click WhatsApp, SMS, and email dispatch, call reminders, 30-minute snoozes, and completion. Scheduling uses a selected lead UUID so duplicate names cannot attach a task to the wrong buyer. The protected `/api/followups/actions` route validates scheduling, completion, sends, and snoozes against the signed-in workspace before recording notification, message, and activity audit entries. Dry-run mode keeps the full workflow usable without provider credentials.
-
-## Notifications
-
-The header bell opens a responsive in-app notification center with unread counts, per-item read actions, mark-all, and an empty state. Live sessions load user-addressed notifications from the protected `/api/notifications` route. Lead assignment, missed calls, scheduled follow-ups, site visits, and property sharing feed the notification table; demo mode persists the same read workflow in browser storage.
-
-The Vercel cron in `vercel.json` invokes `GET /api/cron/notifications` daily at `05:00 UTC`. Set a random `CRON_SECRET` with at least 16 characters in Vercel so scheduled invocations include the expected bearer token. The dispatcher creates deduplicated reminders for pending follow-ups, social posts scheduled within 24 hours, and prior-day attendance gaps. Daily scheduling keeps the project compatible with Vercel Hobby cron limits.
-
-For a manual production check:
-
-```bash
-curl -H "Authorization: Bearer $CRON_SECRET" https://your-app.example/api/cron/notifications
-```
-
-## Lead Operations
-
-The lead drawer supports qualification changes, hot-lead marking, note updates, sales-agent reassignment, and tenant-scoped activity history. Its **Call now** action uses the protected `/api/leads/actions` route to create a call log before starting the Twilio bridge adapter. The same route loads calls, messages, follow-ups, property shares, and activity records into the lead timeline. Demo mode simulates the call and keeps lead edits in browser storage.
-
-The lead list supports search plus status, source, assigned-agent, temperature, and created-today filters. Live Supabase reads are role-aware: admins and sales managers can operate across the organization, while sales agents can read and update only their assigned leads and follow-up queue rows. Protected lead actions and property sharing apply the same assigned-lead rule server-side.
-
-Lead-linked calls, messages, activities, and property-share audit rows use the same access rule at the database layer. Browser sessions can read authorized timeline records but server routes own audit inserts and updates. Inventory photo metadata and Storage mutations are restricted to admins and sales managers.
-
-## Employee Attendance
-
-The attendance workspace captures browser GPS coordinates for check-in and check-out, accepts optional field notes and private selfie evidence, shows personal attendance history, and summarizes the current organization team. The protected `/api/attendance` route validates the signed-in workspace before reading or updating tenant-scoped attendance rows and logs attendance activity events. The private `attendance-media` bucket restricts uploads to the signed-in user's organization folder. Demo mode stores the same workflow locally in browser storage.
-
-## Site Visit Operations
-
-The Site Visits workspace uses protected tenant-scoped tasks for field walkthrough execution. Admins and sales managers can assign a lead, location, schedule, and field executive. Assigned field executives can review their visits, save field notes, and mark walkthroughs complete. The protected `/api/site-visits` route records notifications and lead timeline activity while demo mode persists the same workflow locally.
-
-Attendance, social publishing, and notification persistence use role-aware RLS policies. Admins and sales managers can review organization attendance while other members see only their own record and private evidence. Social post management and media uploads are restricted to admins and social media managers. Notification recipients can read and mark their own notifications without creating or changing another user's feed.
-
-## Social Media Calendar
-
-The social media workspace stores tenant-scoped drafts and schedules, uploads post assets to the `social-media` bucket, supports internal publishing notes, and provides an AI caption helper. The protected `/api/social-posts` route handles calendar reads, draft creation, caption updates, and publish actions. Publishing runs in dry-run mode unless `SOCIAL_PUBLISH_DRY_RUN=false` and `SOCIAL_PUBLISH_WEBHOOK_URL` points to a Zapier, Make, SocialPilot, Buffer, or custom automation endpoint.
-
-## Dashboard And Reports
-
-Dashboard metrics and reports are derived from the active workspace instead of fixed placeholders. Live Supabase sessions load tenant-scoped lead, call, follow-up, property-share, attendance, inventory, and recent-activity analytics through RLS. Reports include lead sources, pipeline status, agent call performance, follow-up completion, property sharing, won/lost totals, conversion, available inventory, and attendance counts. Demo mode computes the same views from browser-stored workspace records.
-
-## Team Management
-
-The Team workspace loads organization members and assigned-lead counts from the protected `/api/team-members` route. Organization admins can invite members by email, add their role and phone number, and update role or availability from the CRM. Invitations use Supabase Auth through the server-only service-role client; the browser never receives `SUPABASE_SERVICE_ROLE_KEY`. Demo mode stores the same changes locally without sending invitation emails.
-
-## Workspace Settings
-
-The protected `/api/settings` route persists organization name, lead assignment mode, provider sender values, social publishing webhook URL, and dry-run flags. Admins can choose round-robin, manual, or least-busy assignment. Provider credentials remain server-side environment variables: the browser receives only provisioned or missing status and never receives Twilio tokens, Resend keys, webhook secrets, or OpenAI-compatible API keys.
-
-## Project Layout
-
-- `src/components/crm-app.tsx`: responsive product interface and interactions.
-- `src/lib/`: shared types and seeded prototype data.
-- `src/services/`: organization data reads plus provider-independent call, message, email, property-share, attendance, social-publish, and lead-assignment adapters.
-- `src/app/api/webhooks/leads/`: public lead intake route.
-- `src/app/api/leads/actions/`: protected lead qualification, timeline, and bridge-call route.
-- `src/app/api/properties/actions/`: protected inventory update and deletion route.
-- `src/app/api/notifications/`: protected in-app notification feed and read-state route.
-- `src/app/api/cron/notifications/`: bearer-protected scheduled reminder dispatcher.
-- `src/app/api/team-members/`: protected admin team invitation and role-management route.
-- `src/app/api/settings/`: protected organization and provider-adapter settings route.
-- `src/app/api/site-visits/`: protected field walkthrough assignment and completion route.
-- `supabase/migrations/`: organization-aware schema and Row Level Security starter.
-
-## Supabase
-
-Create a Supabase project, add the values from `.env.example`, and apply the SQL migrations in `supabase/migrations/`. For a local Supabase project:
+For local Supabase development:
 
 ```bash
 supabase db reset
 ```
 
-The reset applies both migrations and `supabase/seed.sql`. Seeded local users use the password `estateflow123`; for example, sign in as `admin@estateflow.local`. Replace seeded credentials outside local development.
+The reset applies the migrations and `supabase/seed.sql`. Seeded local users use the password `estateflow123`; for example, sign in as `admin@estateflow.local`. Replace seeded credentials outside local development.
+
+## Lead Intake Webhook
+
+External lead providers, Zapier, Make, or website forms can submit enquiries to:
+
+```text
+POST /api/webhooks/leads
+```
+
+Example:
+
+```bash
+curl -X POST http://localhost:3000/api/webhooks/leads \
+  -H "Content-Type: application/json" \
+  -H "x-webhook-secret: $LEAD_WEBHOOK_SECRET" \
+  -d '{"fullName":"Rahul Sharma","phone":"+919999999999","source":"MagicBricks","propertyType":"Apartment","preferredLocation":"Gurgaon"}'
+```
+
+With Supabase configured, the route validates the optional webhook secret, stores the lead, assigns an available agent through the database round-robin function, starts the bridge-call adapter, and records the call, activity, and notification. Without Supabase values, it returns a dry-run response for local development.
+
+## Twilio Voice Bridge
+
+Keep `TWILIO_DRY_RUN=true` while developing locally. To enable live calls:
+
+1. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER`.
+2. Set `NEXT_PUBLIC_APP_URL` to a public HTTPS deployment or tunnel URL that Twilio can reach.
+3. Set `TWILIO_DRY_RUN=false`.
+4. Keep `TWILIO_VALIDATE_SIGNATURES=true`.
+5. Set `TWILIO_MAX_AGENT_ATTEMPTS` to control retry behavior.
+
+Twilio calls the generated `/api/twilio/voice/*` routes to gather agent confirmation, dial the lead, bridge both parties into a recorded conference, and persist status, duration, and recording URL. If an agent is unavailable, the service retries another available agent before creating a missed-call follow-up.
+
+## Notifications
+
+The in-app notification center records lead assignments, missed calls, scheduled follow-ups, site visits, property shares, attendance issues, and social-post reminders.
+
+`vercel.json` invokes `GET /api/cron/notifications` daily at `05:00 UTC`. Set a random `CRON_SECRET` with at least 16 characters in Vercel so scheduled invocations include the expected bearer token.
 
 ## Deployment
 
-Deploy to Vercel as a standard Next.js project. Add the `.env.example` values as Vercel environment variables and keep provider secrets server-side.
+Deploy the repository as a standard Next.js project on Vercel:
 
-## Install On Android
+1. Create a Supabase project and apply the migrations.
+2. Add the `.env.example` values to Vercel environment variables.
+3. Keep provider secrets server-side.
+4. Deploy the application.
+5. Verify authentication, the lead webhook, the cron route, and public property-share links.
 
-Deploy the app to an HTTPS URL, open it in Chrome on Android, then use **Install app** or **Add to Home screen** from the browser menu. The installed PWA opens in its own app window and includes a cached shell for basic offline startup. Local `http://localhost` is suitable for development checks, but installation on a phone requires an HTTPS deployment.
+The application includes a PWA manifest and cached shell. After deployment to HTTPS, Android users can install it through Chrome using **Install app** or **Add to Home screen**.
+
+## Project Structure
+
+```text
+src/app/                  Next.js pages and API routes
+src/components/           CRM shell, forms, and workspace tools
+src/lib/                  Types, demo data, Supabase clients, and helpers
+src/services/             Provider-independent business adapters
+supabase/migrations/      Tenant-aware schema and RLS policies
+supabase/seed.sql         Local development fixtures
+public/readme/            Product screenshots used in this README
+```
+
+## Architecture Notes
+
+- Server inputs are validated with Zod.
+- Organization-scoped tables include `organization_id`.
+- External providers are accessed through service adapters rather than UI components.
+- Twilio, messaging, email, attendance, social publishing, and lead assignment support local dry-run workflows.
+- Public property pages use tokenized links while protected CRM operations require an authenticated organization session.
