@@ -29,10 +29,16 @@ export async function updateOrganizationProperty(identity: WorkspaceIdentity, pr
     return { ...property, ...input };
   }
 
-  return requestPropertyApi<Property>("PATCH", {
+  const updatedProperty = await requestPropertyApi<Property>("PATCH", {
     propertyId: property.id,
     ...input,
   });
+
+  void requestPropertyEmbedding(property.id).catch((error: unknown) => {
+    console.warn("Property embedding refresh failed", error);
+  });
+
+  return updatedProperty;
 }
 
 export async function deleteOrganizationProperty(identity: WorkspaceIdentity, property: Property) {
@@ -67,4 +73,28 @@ async function requestPropertyApi<T = void>(method: "PATCH" | "DELETE", body: Re
   }
 
   return result.property as T;
+}
+
+export async function requestPropertyEmbedding(propertyId: string) {
+  const supabase = getSupabaseBrowserClient();
+  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
+  const token = data.session?.access_token;
+
+  if (!token) {
+    throw new Error("Your session expired. Sign in again.");
+  }
+
+  const response = await fetch("/api/ai/embed-property", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ propertyId }),
+  });
+  const result = await response.json() as { error?: string };
+
+  if (!response.ok) {
+    throw new Error(result.error ?? "Unable to refresh property embedding");
+  }
 }

@@ -6,12 +6,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "ai:eval": "tsx scripts/eval/run-eval.ts",
+    "ai:seed-embeddings": "tsx scripts/seed-embeddings.ts"
   },
   "dependencies": {
+    "@langchain/core": "^1.1.48",
+    "@langchain/langgraph": "^1.3.4",
+    "@langchain/openai": "^1.4.7",
     "@supabase/supabase-js": "^2.106.2",
+    "ai": "^4.0.0",
+    "langsmith": "^0.7.4",
     "lucide-react": "^1.17.0",
     "next": "16.2.6",
+    "openai": "^4.0.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.4.3"
@@ -24,6 +33,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.22.4",
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }

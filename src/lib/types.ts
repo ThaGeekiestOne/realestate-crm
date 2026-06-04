@@ -43,6 +43,14 @@ export interface Lead {
   created: string;
   createdAt?: string;
   note: string;
+  qualificationStatus?: "pending" | "in_progress" | "complete" | "failed";
+  qualifiedBudgetMin?: number | null;
+  qualifiedBudgetMax?: number | null;
+  qualifiedLocations?: string[] | null;
+  qualifiedTimeline?: string | null;
+  qualifiedPropertyType?: string | null;
+  qualificationSentiment?: string | null;
+  qualificationCompletedAt?: string | null;
 }
 
 export interface Property {

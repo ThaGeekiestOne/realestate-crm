@@ -1,0 +1,46 @@
+name: AI Eval
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/ai/**"
+      - "src/app/api/ai/**"
+      - "src/app/api/webhooks/voice/**"
+      - "scripts/eval/**"
+      - "test/**"
+      - "vitest.config.ts"
+      - "package.json"
+      - "package-lock.json"
+
+jobs:
+  ai-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci --legacy-peer-deps
+      - run: npm run test
+      - run: npx tsc --noEmit
+      - run: npm run lint
+
+  rag-eval:
+    runs-on: ubuntu-latest
+    needs: ai-checks
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci --legacy-peer-deps
+      - run: npm run ai:eval
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+          LANGCHAIN_PROJECT: estateflow
+          LANGCHAIN_TRACING_V2: "true"

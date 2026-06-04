@@ -44,3 +44,4 @@ next-env.d.ts
 # local repository guidance
 /AGENTS.md
 /Plan.md
+/transform_plan.md

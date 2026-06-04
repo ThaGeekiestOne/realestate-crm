@@ -31,6 +31,16 @@ export async function startLeadBridgeCall(identity: WorkspaceIdentity, lead: Lea
   });
 }
 
+export async function startLeadQualificationCall(identity: WorkspaceIdentity, lead: Lead) {
+  if (identity.isDemo) {
+    return { callId: `demo-${Date.now()}` };
+  }
+
+  return requestAiApi<{ callId: string }>("/api/ai/qualify-lead", {
+    leadId: lead.id,
+  });
+}
+
 export async function updateOrganizationLead(identity: WorkspaceIdentity, lead: Lead, input: LeadUpdateInput) {
   if (identity.isDemo) {
     return {
@@ -50,6 +60,32 @@ export async function updateOrganizationLead(identity: WorkspaceIdentity, lead: 
     notes: input.note,
     assignedAgentId: input.assignedAgentId,
   });
+}
+
+async function requestAiApi<T>(path: string, body: Record<string, unknown>) {
+  const supabase = getSupabaseBrowserClient();
+  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
+  const token = data.session?.access_token;
+
+  if (!token) {
+    throw new Error("Your session expired. Sign in again.");
+  }
+
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json() as { error?: string } & T;
+
+  if (!response.ok) {
+    throw new Error(result.error ?? "Unable to start AI action");
+  }
+
+  return result;
 }
 
 async function requestLeadApi<T>(query: string, method: "GET" | "POST", body?: Record<string, unknown>) {

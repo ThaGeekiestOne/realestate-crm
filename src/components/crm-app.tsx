@@ -36,7 +36,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   attendance as initialAttendance,
   attendanceHistory as initialAttendanceHistory,
@@ -106,6 +106,7 @@ import {
 import {
   getLeadTimeline,
   startLeadBridgeCall,
+  startLeadQualificationCall,
   updateOrganizationLead,
   type LeadUpdateInput,
 } from "@/services/lead-action-client-service";
@@ -128,6 +129,9 @@ import {
   getOrganizationSiteVisits,
   updateOrganizationSiteVisit,
 } from "@/services/site-visit-client-service";
+import { CallSummaryCard } from "@/components/CallSummaryCard";
+import { FollowUpDraftCard } from "@/components/FollowUpDraftCard";
+import { SmartSearchBar, type SmartSearchProperty } from "@/components/SmartSearchBar";
 
 const nav = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -811,6 +815,25 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
     }
   };
 
+  const qualifyLead = async (lead: Lead) => {
+    try {
+      const result = await startLeadQualificationCall(identity, lead);
+      const updateQualificationStatus = (item: Lead) => item.id === lead.id ? { ...item, qualificationStatus: "in_progress" as const } : item;
+
+      if (identity.isDemo) {
+        setDemoLeads(demoLeads.map(updateQualificationStatus));
+      } else {
+        setRemoteLeads(remoteLeads.map(updateQualificationStatus));
+        setReloadToken((token) => token + 1);
+      }
+
+      setSelectedLead((current) => current?.id === lead.id ? updateQualificationStatus(current) : current);
+      notify(result.callId.startsWith("demo-") ? `Demo qualification started for ${lead.name}` : `AI qualification call started for ${lead.name}`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to start AI qualification");
+    }
+  };
+
   const updateTeamMember = async (member: typeof members[number]) => {
     try {
       const updatedMember = identity.isDemo ? member : await updateOrganizationTeamMember(identity, member);
@@ -879,7 +902,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
           {!identity.isDemo && <WorkspaceSyncStatus state={workspaceStatus} retry={reloadWorkspace} />}
           {active === "dashboard" && <Dashboard identity={identity} leads={crmLeads} followups={crmFollowups} analytics={analytics} canAddLead={canAddLead} setActive={navigate} openTool={openTool} openForm={setFormDialog} setSelectedLead={setSelectedLead} />}
           {active === "leads" && <LeadsPage search={search} setSearch={setSearch} leadFilter={leadFilter} setLeadFilter={setLeadFilter} leads={filteredLeads} canAddLead={canAddLead} setSelectedLead={setSelectedLead} openForm={setFormDialog} />}
-          {active === "properties" && <PropertiesPage properties={crmProperties} leads={crmLeads} canManageInventory={canManageInventory} openForm={setFormDialog} setSelectedProperty={setSelectedProperty} />}
+          {active === "properties" && <PropertiesPage organizationId={identity.isDemo ? undefined : identity.organizationId} properties={crmProperties} leads={crmLeads} canManageInventory={canManageInventory} openForm={setFormDialog} setSelectedProperty={setSelectedProperty} />}
           {active === "followups" && <FollowupsPage followups={crmFollowups} analytics={analytics} canSchedule={canScheduleFollowup} completeFollowup={completeFollowup} sendQuickFollowup={sendQuickFollowup} snoozeFollowup={snoozeFollowup} openForm={setFormDialog} notify={notify} />}
           {active === "more" && !activeTool && <MorePage identity={identity} attendance={attendance} settings={settings} canManageTeam={identity.isDemo || identity.role === "admin"} openTool={openTool} openForm={setFormDialog} />}
           {active === "more" && activeTool && <WorkspaceToolView tool={activeTool} identity={identity} analytics={analytics} attendance={attendance} attendanceHistory={attendanceHistory} updateAttendance={updateAttendance} siteVisits={siteVisits} updateSiteVisit={updateSiteVisit} socialPosts={socialPosts} publishSocialPost={publishSocialPost} draftSocialPostCaption={draftSocialPostCaption} leads={crmLeads} properties={crmProperties} members={members} updateTeamMember={updateTeamMember} settings={settings} setSettings={identity.isDemo ? setDemoIntegrationSettings : setRemoteIntegrationSettings} saveIntegrationSettings={saveIntegrationSettings} workspaceSettings={workspaceSettings} setWorkspaceSettings={identity.isDemo ? setDemoWorkspaceSettings : setRemoteWorkspaceSettings} saveWorkspaceSettings={saveWorkspaceSettings} resetDemoData={identity.isDemo ? resetDemoData : undefined} back={() => setActiveTool(null)} openSiteVisitForm={() => setFormDialog({ kind: "site-visit" })} openSocialForm={() => setFormDialog({ kind: "social" })} openMemberForm={() => setFormDialog({ kind: "member" })} notify={notify} />}
@@ -893,7 +916,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
         })}
       </nav>
 
-      {selectedLead && <LeadDrawer key={selectedLead.id} identity={identity} lead={selectedLead} properties={crmProperties} members={members} close={() => setSelectedLead(null)} notify={notify} shareProperty={sendPropertyShare} callLead={callLead} updateLead={updateLead} />}
+      {selectedLead && <LeadDrawer key={selectedLead.id} identity={identity} lead={selectedLead} properties={crmProperties} members={members} close={() => setSelectedLead(null)} notify={notify} shareProperty={sendPropertyShare} callLead={callLead} qualifyLead={qualifyLead} updateLead={updateLead} />}
       {selectedProperty && <PropertyDrawer key={selectedProperty.id} property={selectedProperty} canManageInventory={canManageInventory} close={() => setSelectedProperty(null)} updateProperty={updateProperty} deleteProperty={deleteProperty} />}
       {showNotifications && <NotificationCenter notifications={notifications} close={() => setShowNotifications(false)} markRead={markNotificationRead} />}
       {formDialog && <WorkspaceFormDialog state={formDialog} close={() => setFormDialog(null)} leads={crmLeads} members={members} addLead={addLead} addProperty={addProperty} addFollowup={addFollowup} addSiteVisit={addSiteVisit} addSocialPost={addSocialPost} addMember={addMember} />}
@@ -1074,28 +1097,47 @@ function isLeadCreatedToday(lead: Lead) {
   return created.getFullYear() === today.getFullYear() && created.getMonth() === today.getMonth() && created.getDate() === today.getDate();
 }
 
-function PropertiesPage({ properties, leads, canManageInventory, openForm, setSelectedProperty }: { properties: Property[]; leads: Lead[]; canManageInventory: boolean; openForm: (state: FormDialogState) => void; setSelectedProperty: (property: Property) => void }) {
+function PropertiesPage({ organizationId, properties, leads, canManageInventory, openForm, setSelectedProperty }: { organizationId?: string; properties: Property[]; leads: Lead[]; canManageInventory: boolean; openForm: (state: FormDialogState) => void; setSelectedProperty: (property: Property) => void }) {
   const [search, setSearch] = useState("");
+  const [smartSearchResults, setSmartSearchResults] = useState<SmartSearchProperty[] | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [status, setStatus] = useState("All");
   const [type, setType] = useState("All");
   const [location, setLocation] = useState("All");
   const propertyTypes = [...new Set(properties.map((property) => property.type))];
   const locations = [...new Set(properties.map((property) => property.location))];
-  const filteredProperties = properties.filter((property) => {
+  const smartSearchRank = new Map((smartSearchResults ?? []).map((result) => [result.id, result.similarity]));
+  const smartRankedProperties = smartSearchResults
+    ? smartSearchResults.map((result) => properties.find((property) => property.id === result.id)).filter((property): property is Property => Boolean(property))
+    : properties;
+  const filteredProperties = smartRankedProperties.filter((property) => {
     const matchesSearch = `${property.title} ${property.location} ${property.type} ${property.ownerDeveloper ?? ""}`.toLowerCase().includes(search.toLowerCase());
     return matchesSearch && (status === "All" || property.status === status) && (type === "All" || property.type === type) && (location === "All" || property.location === location);
   });
+  const handleSmartResults = useCallback((results: SmartSearchProperty[]) => {
+    setSmartSearchResults(results);
+    setSearch("");
+  }, []);
+  const clearSmartResults = useCallback(() => {
+    setSmartSearchResults(null);
+  }, []);
 
   return <div>
     <PageHeading eyebrow="Inventory" title="Properties" copy="Match active inventory with the right buyers." action={canManageInventory ? "Add property" : undefined} onAction={canManageInventory ? () => openForm({ kind: "property" }) : undefined} />
     <div className="mb-4 flex flex-wrap gap-2">
-      <label className="flex h-9 min-w-[210px] flex-1 items-center gap-2 rounded-lg border border-[#e1e6e1] bg-white px-3 text-[#89948f]"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full bg-transparent text-xs outline-none" placeholder="Search inventory..." /></label>
+      <label className="flex h-9 min-w-[210px] flex-1 items-center gap-2 rounded-lg border border-[#e1e6e1] bg-white px-3 text-[#89948f]"><Search size={15} /><input value={search} onChange={(event) => { setSearch(event.target.value); setSmartSearchResults(null); }} className="w-full bg-transparent text-xs outline-none" placeholder="Search inventory..." /></label>
       <button aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)} className="flex h-9 items-center gap-2 rounded-lg border border-[#e1e6e1] bg-white px-3 text-xs font-semibold text-[#65736e]"><SlidersHorizontal size={14} /> Filters</button>
     </div>
+    {organizationId && <div className="mb-4 rounded-2xl border border-[#e3e8e3] bg-white p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-xs font-bold text-[#40514b]">Smart property search</p>
+        {smartSearchResults ? <Badge tone="green">{smartSearchResults.length} AI matches</Badge> : <Badge tone="neutral">Semantic</Badge>}
+      </div>
+      <SmartSearchBar organizationId={organizationId} onResults={handleSmartResults} onClear={clearSmartResults} />
+    </div>}
     {showFilters && <div className="mb-4 grid gap-2 rounded-xl border border-[#e3e8e3] bg-white p-3 sm:grid-cols-3"><InventoryFilter label="Status" value={status} setValue={setStatus} options={["All", "Available", "Hold", "Sold", "Rented"]} /><InventoryFilter label="Property type" value={type} setValue={setType} options={["All", ...propertyTypes]} /><InventoryFilter label="Location" value={location} setValue={setLocation} options={["All", ...locations]} /></div>}
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{filteredProperties.map((property) => <article key={property.id} className="overflow-hidden rounded-2xl border border-[#e3e8e3] bg-white">
-      <button onClick={() => setSelectedProperty(property)} className="block w-full text-left"><div className="relative h-40 bg-cover bg-center" style={{ backgroundImage: `url(${property.image})` }}><div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" /><span className="absolute left-3 top-3"><Badge tone={property.status === "Available" ? "green" : "amber"}>{property.status}</Badge></span><span className="absolute bottom-3 left-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold text-[#315044]">{getRecommendedLeads(property, leads).length} matching leads</span></div>
+      <button onClick={() => setSelectedProperty(property)} className="block w-full text-left"><div className="relative h-40 bg-cover bg-center" style={{ backgroundImage: `url(${property.image})` }}><div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" /><span className="absolute left-3 top-3"><Badge tone={property.status === "Available" ? "green" : "amber"}>{property.status}</Badge></span>{smartSearchRank.has(property.id) && <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold text-[#176b4d]">{Math.round((smartSearchRank.get(property.id) ?? 0) * 100)}% AI match</span>}<span className="absolute bottom-3 left-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold text-[#315044]">{getRecommendedLeads(property, leads).length} matching leads</span></div>
       <div className="p-4"><p className="text-sm font-bold text-[#263730]">{property.title}</p><p className="mt-1 flex items-center gap-1 text-[11px] text-[#85918d]"><MapPin size={12} />{property.location}</p><div className="mt-4 flex items-end justify-between"><div><p className="text-sm font-bold text-[#176b4d]">{property.price}</p><p className="mt-1 text-[10px] text-[#89958f]">{property.details}</p></div><span className="flex items-center gap-1 text-[10px] font-bold text-[#176b4d]">Details <ChevronRight size={13} /></span></div></div></button>
     </article>)}</div>
     {!filteredProperties.length && <div className="rounded-2xl border border-[#e3e8e3] bg-white py-14 text-center"><Search className="mx-auto text-[#a3afaa]" size={22} /><p className="mt-3 text-sm font-bold">No matching properties</p><p className="mt-1 text-xs text-[#89958f]">Try a different project, location, or type.</p></div>}
@@ -1304,7 +1346,7 @@ function getSharedLocationToken(left: string, right: string) {
   return tokens.some((token) => right.includes(token));
 }
 
-function LeadDrawer({ identity, lead, properties: unorderedProperties, members, close, notify, shareProperty, callLead, updateLead }: { identity: WorkspaceIdentity; lead: Lead; properties: Property[]; members: typeof initialTeamMembers; close: () => void; notify: (message: string) => void; shareProperty: (lead: Lead, property: Property, channel: PropertyShareChannel) => Promise<void>; callLead: (lead: Lead) => Promise<void>; updateLead: (lead: Lead, input: LeadUpdateInput) => Promise<void> }) {
+function LeadDrawer({ identity, lead, properties: unorderedProperties, members, close, notify, shareProperty, callLead, qualifyLead, updateLead }: { identity: WorkspaceIdentity; lead: Lead; properties: Property[]; members: typeof initialTeamMembers; close: () => void; notify: (message: string) => void; shareProperty: (lead: Lead, property: Property, channel: PropertyShareChannel) => Promise<void>; callLead: (lead: Lead) => Promise<void>; qualifyLead: (lead: Lead) => Promise<void>; updateLead: (lead: Lead, input: LeadUpdateInput) => Promise<void> }) {
   const [showProperties, setShowProperties] = useState(false);
   const [timeline, setTimeline] = useState<LeadTimelineItem[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
@@ -1348,9 +1390,11 @@ function LeadDrawer({ identity, lead, properties: unorderedProperties, members, 
   return <div className="fixed inset-0 z-40 bg-[#15251f]/30 backdrop-blur-[2px]" onMouseDown={close}><aside onMouseDown={(event) => event.stopPropagation()} className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl">
     <div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8d9a95]">Lead details</p><button aria-label="Close lead details" onClick={close} className="grid h-8 w-8 place-items-center rounded-full bg-[#f1f3f0] text-[#68756f]"><X size={15} /></button></div>
     <div className="mt-6 flex items-center gap-3"><Avatar initials={lead.initials} size="lg" /><div><div className="flex items-center gap-2"><h3 className="text-lg font-bold tracking-[-0.04em]">{lead.name}</h3><Badge tone={temperatureTone(lead.temperature)}>{lead.temperature}</Badge></div><p className="mt-1 text-xs text-[#7c8984]">{lead.id} · {lead.source}</p></div></div>
-    <div className="mt-6 grid grid-cols-3 gap-2"><DrawerAction icon={Phone} label="Call now" onClick={() => void callLead(lead).then(refreshTimeline)} /><DrawerAction icon={MessageCircle} label="WhatsApp" onClick={() => notify(`WhatsApp follow-up prepared for ${lead.name}`)} /><DrawerAction icon={Share2} label="Recommended" onClick={() => setShowProperties(!showProperties)} /></div>
+    <div className="mt-6 grid grid-cols-4 gap-2"><DrawerAction icon={Phone} label="Call now" onClick={() => void callLead(lead).then(refreshTimeline)} /><DrawerAction icon={Sparkles} label="AI qualify" onClick={() => void qualifyLead(lead).then(refreshTimeline)} /><DrawerAction icon={MessageCircle} label="WhatsApp" onClick={() => notify(`WhatsApp follow-up prepared for ${lead.name}`)} /><DrawerAction icon={Share2} label="Recommended" onClick={() => setShowProperties(!showProperties)} /></div>
     {showProperties && <div className="mt-4 rounded-xl border border-[#dfe7e2] bg-[#fbfcfa] p-3"><div className="flex items-center justify-between"><p className="text-xs font-bold text-[#40514b]">Select a property to share</p><Badge tone="green">{properties.length} listings</Badge></div><div className="mt-2 max-h-72 space-y-2 overflow-y-auto">{properties.map((property) => <div key={property.id} className="rounded-xl border border-[#e6eae5] bg-white p-3"><div className="flex gap-3"><div className="h-12 w-14 shrink-0 rounded-lg bg-cover bg-center" style={{ backgroundImage: `url(${property.image})` }} /><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#34443e]">{property.title}</p><p className="mt-1 truncate text-[10px] text-[#85918d]">{property.location} · {property.price}</p></div></div><div className="mt-3 grid grid-cols-3 gap-1.5"><ShareChannelButton label="WhatsApp" icon={MessageCircle} onClick={() => void shareProperty(lead, property, "whatsapp")} /><ShareChannelButton label="SMS" icon={Phone} onClick={() => void shareProperty(lead, property, "sms")} /><ShareChannelButton label="Email" icon={Mail} onClick={() => void shareProperty(lead, property, "email")} /></div></div>)}</div></div>}
     <div className="mt-6 grid grid-cols-2 gap-4 rounded-xl bg-[#f7f8f5] p-4 text-xs"><Detail label="Phone" value={lead.phone} /><Detail label="Status" value={lead.status} /><Detail label="Budget" value={lead.budget} /><Detail label="Property" value={lead.propertyType} /><Detail label="Location" value={lead.location} /><Detail label="Assigned to" value={lead.agent} /></div>
+    <div className="mt-6"><CallSummaryCard qualificationStatus={lead.qualificationStatus ?? "pending"} budgetMin={lead.qualifiedBudgetMin} budgetMax={lead.qualifiedBudgetMax} locations={lead.qualifiedLocations} timeline={lead.qualifiedTimeline} propertyType={lead.qualifiedPropertyType} sentiment={lead.qualificationSentiment} completedAt={lead.qualificationCompletedAt} /></div>
+    {!identity.isDemo && <div className="mt-6"><FollowUpDraftCard leadId={lead.id} organizationId={identity.organizationId} onSent={refreshTimeline} /></div>}
     <div className="mt-6"><SectionTitle title="Qualification" /><div className="mt-3 grid gap-3 rounded-xl border border-[#e6eae5] p-3 sm:grid-cols-2"><DrawerField label="Status"><select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as LeadStatus })} className={drawerInputClass}>{["New", "Contacted", "Interested", "Site Visit", "Negotiation", "Won", "Lost", "Not Responding"].map((status) => <option key={status}>{status}</option>)}</select></DrawerField><DrawerField label="Temperature"><select value={draft.temperature} onChange={(event) => setDraft({ ...draft, temperature: event.target.value as Lead["temperature"] })} className={drawerInputClass}>{["Hot", "Warm", "Cold"].map((temperature) => <option key={temperature}>{temperature}</option>)}</select></DrawerField><DrawerField label="Assigned agent"><select disabled={!canReassignLead} value={draft.assignedAgentId} onChange={(event) => setDraft({ ...draft, assignedAgentId: event.target.value })} className={drawerInputClass}>{members.filter((member) => ["Sales Manager", "Sales Agent"].includes(member.role)).map((member) => <option key={member.id} value={member.profileId ?? member.id}>{member.name}</option>)}</select></DrawerField><button onClick={() => setDraft({ ...draft, temperature: "Hot" })} className="mt-5 h-10 rounded-lg bg-[#fbebea] px-3 text-xs font-bold text-[#b34b49]">Mark as hot lead</button><label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#9aa5a1] sm:col-span-2">Notes<textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} className={`${drawerInputClass} min-h-20 py-2`} /></label><button onClick={() => void saveLead()} className="h-10 rounded-lg bg-[#176b4d] px-4 text-xs font-bold text-white sm:col-span-2">Save lead changes</button></div></div>
     <div className="mt-6"><SectionTitle title="Next follow-up" /><div className="mt-3 flex items-center gap-3 rounded-xl border border-[#eadfc7] bg-[#fffaf0] p-3"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#faedcd] text-[#a66b16]"><CalendarClock size={16} /></div><div><p className="text-xs font-bold">{lead.nextFollowup}</p><p className="mt-1 text-[10px] text-[#8f7b5e]">Call and discuss shortlisted options</p></div></div></div>
     <div className="mt-6"><SectionTitle title="Activity timeline" />{timelineLoading ? <p className="mt-4 text-xs text-[#8a9691]">Loading timeline...</p> : <div className="mt-4 space-y-4">{timeline.map((item) => <Timeline key={item.id} item={item} />)}</div>}{!timelineLoading && !timeline.length && <p className="mt-4 text-xs text-[#8a9691]">No lead activity recorded yet.</p>}</div>

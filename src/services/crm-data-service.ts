@@ -3,6 +3,7 @@
 import type { WorkspaceIdentity } from "@/lib/auth-types";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { Followup, Lead, LeadStatus, LeadTemperature, Property, PropertyDocument } from "@/lib/types";
+import { requestPropertyEmbedding } from "@/services/property-action-client-service";
 
 interface LeadRecord {
   id: string;
@@ -18,6 +19,14 @@ interface LeadRecord {
   notes: string | null;
   next_followup_at: string | null;
   created_at: string;
+  qualification_status?: "pending" | "in_progress" | "complete" | "failed" | null;
+  qualified_budget_min?: number | null;
+  qualified_budget_max?: number | null;
+  qualified_locations?: string[] | null;
+  qualified_timeline?: string | null;
+  qualified_property_type?: string | null;
+  qualification_sentiment?: string | null;
+  qualification_completed_at?: string | null;
   profiles: { full_name: string } | { full_name: string }[] | null;
 }
 
@@ -208,6 +217,14 @@ export function mapLead(record: LeadRecord): Lead {
     created: formatDateTime(record.created_at),
     createdAt: record.created_at,
     note: record.notes ?? "No notes added yet.",
+    qualificationStatus: record.qualification_status ?? "pending",
+    qualifiedBudgetMin: record.qualified_budget_min ?? null,
+    qualifiedBudgetMax: record.qualified_budget_max ?? null,
+    qualifiedLocations: record.qualified_locations ?? null,
+    qualifiedTimeline: record.qualified_timeline ?? null,
+    qualifiedPropertyType: record.qualified_property_type ?? null,
+    qualificationSentiment: record.qualification_sentiment ?? null,
+    qualificationCompletedAt: record.qualification_completed_at ?? null,
   };
 }
 
@@ -281,7 +298,7 @@ export async function getOrganizationWorkspaceSnapshot(identity: WorkspaceIdenti
   const [leadsResult, propertiesResult, followupsResult] = await Promise.all([
     supabase
       .from("leads")
-      .select("id, full_name, phone, source, property_type, budget_min, budget_max, preferred_location, status, temperature, notes, next_followup_at, created_at, profiles(full_name)")
+      .select("id, full_name, phone, source, property_type, budget_min, budget_max, preferred_location, status, temperature, notes, next_followup_at, created_at, qualification_status, qualified_budget_min, qualified_budget_max, qualified_locations, qualified_timeline, qualified_property_type, qualification_sentiment, qualification_completed_at, profiles(full_name)")
       .eq("organization_id", identity.organizationId)
       .order("created_at", { ascending: false }),
     supabase
@@ -340,7 +357,7 @@ export async function createOrganizationLead(identity: WorkspaceIdentity, input:
       temperature: input.temperature,
       notes: input.note,
     })
-    .select("id, full_name, phone, source, property_type, budget_min, budget_max, preferred_location, status, temperature, notes, next_followup_at, created_at, profiles(full_name)")
+    .select("id, full_name, phone, source, property_type, budget_min, budget_max, preferred_location, status, temperature, notes, next_followup_at, created_at, qualification_status, qualified_budget_min, qualified_budget_max, qualified_locations, qualified_timeline, qualified_property_type, qualification_sentiment, qualification_completed_at, profiles(full_name)")
     .single<LeadRecord>();
 
   if (error) {
@@ -382,7 +399,13 @@ export async function createOrganizationProperty(identity: WorkspaceIdentity, in
   }
 
   if (!imageFiles.length && !documentFiles.length) {
-    return mapProperty(data);
+    const property = mapProperty(data);
+
+    void requestPropertyEmbedding(property.id).catch((error: unknown) => {
+      console.warn("Property embedding refresh failed", error);
+    });
+
+    return property;
   }
 
   const uploadedPaths: string[] = [];
@@ -445,7 +468,7 @@ export async function createOrganizationProperty(identity: WorkspaceIdentity, in
     });
   }
 
-  return mapProperty({
+  const property = mapProperty({
     ...data,
     property_images: uploadedPaths.map((storage_path) => ({ storage_path })),
     property_documents: uploadedDocuments.map((document) => ({
@@ -454,6 +477,12 @@ export async function createOrganizationProperty(identity: WorkspaceIdentity, in
       document_type: document.type,
     })),
   });
+
+  void requestPropertyEmbedding(property.id).catch((error: unknown) => {
+    console.warn("Property embedding refresh failed", error);
+  });
+
+  return property;
 }
 
 function getStorageFileName(storagePath: string) {
