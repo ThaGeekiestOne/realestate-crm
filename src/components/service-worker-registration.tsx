@@ -15,7 +15,7 @@ export function ServiceWorkerRegistration() {
           .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister()))),
         caches
           .keys()
-          .then((keys) => Promise.all(keys.filter((key) => key.startsWith("estateflow-")).map((key) => caches.delete(key)))),
+          .then((keys) => Promise.all(keys.filter((key) => key.startsWith("estateflow-") || key.startsWith("estate-ai-flow-")).map((key) => caches.delete(key)))),
       ]);
 
       return;

@@ -409,7 +409,7 @@ export function CrmApp({ identity, onSignOut }: { identity: WorkspaceIdentity; o
   };
 
   const resetDemoData = () => {
-    if (!window.confirm("Reset all demo changes and restore the seeded EstateFlow workspace?")) {
+    if (!window.confirm("Reset all demo changes and restore the seeded Estate AI Flow demo workspace?")) {
       return;
     }
 
@@ -929,7 +929,7 @@ function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`flex items-center gap-2.5 ${compact ? "" : "h-[68px] border-b border-[#e4e8e3] px-5"}`}>
       <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#176b4d] text-white"><Building2 size={17} /></div>
-      <div><p className="text-sm font-bold tracking-[-0.04em] text-[#20312b]">EstateFlow</p><p className="text-[9px] font-bold tracking-[0.22em] text-[#8f9d97]">CRM</p></div>
+      <div><p className="text-sm font-bold tracking-[-0.04em] text-[#20312b]">Estate AI Flow</p><p className="text-[9px] font-bold tracking-[0.22em] text-[#8f9d97]">CRM</p></div>
     </div>
   );
 }

@@ -14,10 +14,10 @@ interface ProfileRecord {
 
 function getOrganizationName(organizations: ProfileRecord["organizations"]) {
   if (Array.isArray(organizations)) {
-    return organizations[0]?.name ?? "EstateFlow Workspace";
+    return organizations[0]?.name ?? "Estate AI Flow Workspace";
   }
 
-  return organizations?.name ?? "EstateFlow Workspace";
+  return organizations?.name ?? "Estate AI Flow Workspace";
 }
 
 export async function getWorkspaceIdentity(user: User): Promise<WorkspaceIdentity> {

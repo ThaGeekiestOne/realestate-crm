@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "EstateFlow CRM",
-    short_name: "EstateFlow",
-    description: "Mobile-first real estate sales operations CRM.",
+    name: "Estate AI Flow",
+    short_name: "Estate AI",
+    description: "Mobile-first real estate AI sales operations workspace.",
     start_url: "/",
     display: "standalone",
     background_color: "#f6f7f3",

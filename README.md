@@ -1,18 +1,18 @@
-# EstateFlow CRM
+# Estate AI Flow
 
 ## Turn Every Property Enquiry Into A Sales Opportunity
 
-EstateFlow CRM is a mobile-first workspace for real estate teams. It helps your team respond to new enquiries faster, organize every buyer conversation, match prospects with the right listings, and keep sales activity visible from one dashboard.
+Estate AI Flow is a mobile-first workspace for real estate teams. It helps your team respond to new enquiries faster, organize every buyer conversation, match prospects with the right listings, and keep sales activity visible from one dashboard.
 
 Leads, calls, listings, follow-ups, site visits, attendance, and team performance stay connected in one place.
 
-![EstateFlow CRM sales dashboard](public/readme/dashboard-desktop.png)
+![Estate AI Flow sales dashboard](public/readme/dashboard-desktop.png)
 
-## The Problem EstateFlow Solves
+## The Problem Estate AI Flow Solves
 
 Property enquiries arrive from portals, advertisements, websites, social media, and referrals. When those leads are scattered across spreadsheets, inboxes, and messaging apps, follow-ups are delayed and opportunities get missed.
 
-EstateFlow gives your team a repeatable sales process:
+Estate AI Flow gives your team a repeatable sales process:
 
 - Capture every enquiry in one queue.
 - Route new leads to available sales agents.
@@ -25,7 +25,7 @@ EstateFlow gives your team a repeatable sales process:
 
 ```mermaid
 flowchart LR
-    A[New buyer enquiry] --> B[Lead enters EstateFlow]
+    A[New buyer enquiry] --> B[Lead enters Estate AI Flow]
     B --> C[Available agent is assigned]
     C --> D[Agent-first bridge call starts]
     D --> E[Agent speaks with buyer]
@@ -36,7 +36,7 @@ flowchart LR
 
 ## Respond Faster To New Leads
 
-New enquiries from website forms, campaigns, or connected lead sources enter the sales queue automatically. EstateFlow assigns an available agent and can start an agent-first call flow: the sales agent answers first, then EstateFlow connects the buyer.
+New enquiries from website forms, campaigns, or connected lead sources enter the sales queue automatically. Estate AI Flow assigns an available agent and can start an agent-first call flow: the sales agent answers first, then Estate AI Flow connects the buyer.
 
 If an agent is unavailable, the lead remains visible for follow-up so the team can act before the opportunity goes cold.
 
@@ -50,13 +50,13 @@ Your team can search, qualify, and update leads from a clean mobile workspace. E
 - Lead temperature and sales stage
 - Notes, calls, messages, follow-ups, and property shares
 
-<img src="public/readme/leads-mobile.png" alt="EstateFlow CRM mobile lead workspace" width="360" />
+<img src="public/readme/leads-mobile.png" alt="Estate AI Flow mobile lead workspace" width="360" />
 
 ## Match Buyers With The Right Inventory
 
-EstateFlow keeps property listings organized with photos, brochures, price, location, availability, and property details. Sales teams can quickly identify listings that match an active buyer and share a public property page through WhatsApp, SMS, or email.
+Estate AI Flow keeps property listings organized with photos, brochures, price, location, availability, and property details. Sales teams can quickly identify listings that match an active buyer and share a public property page through WhatsApp, SMS, or email.
 
-![EstateFlow CRM property inventory](public/readme/inventory-desktop.png)
+![Estate AI Flow property inventory](public/readme/inventory-desktop.png)
 
 ## One Workspace For The Whole Team
 
@@ -86,7 +86,7 @@ Review lead sources, sales stages, agent call activity, follow-up completion, pr
 
 ## Built For Every Real Estate Role
 
-| Role | What EstateFlow Helps Them Do |
+| Role | What Estate AI Flow Helps Them Do |
 | --- | --- |
 | Business owner | Monitor leads, inventory, team activity, and sales performance |
 | Sales manager | Assign enquiries, track agent progress, and manage follow-ups |
@@ -96,7 +96,7 @@ Review lead sources, sales stages, agent call activity, follow-up completion, pr
 
 ## Property Portal Support
 
-EstateFlow can receive buyer enquiries from connected portals, campaigns, website forms, and automation tools.
+Estate AI Flow can receive buyer enquiries from connected portals, campaigns, website forms, and automation tools.
 
 Property inventory can be added with photos and documents, then matched and shared from the CRM. Automatic listing synchronization with portals such as MagicBricks, 99acres, or Housing.com can be connected when an authorized API, partner feed, or export file is available.
 
@@ -110,6 +110,6 @@ Property inventory can be added with photos and documents, then matched and shar
 - Public property share pages for buyers
 - Installable mobile web app experience
 
-## EstateFlow CRM
+## Estate AI Flow
 
 Capture leads faster. Call buyers sooner. Share the right properties. Keep every follow-up visible.

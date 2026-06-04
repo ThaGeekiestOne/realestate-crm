@@ -17,7 +17,7 @@ describe("triggerQualificationCall", () => {
       leadId: "lead-1",
       phoneNumber: "+919876543210",
       leadName: "Aarav Mehta",
-      organizationName: "EstateFlow",
+      organizationName: "Estate AI Flow",
     });
 
     expect(result.callId).toMatch(/^dry-run-/);

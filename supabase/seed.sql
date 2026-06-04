@@ -1,7 +1,7 @@
 create extension if not exists pgcrypto;
 
 insert into organizations (id, name)
-values ('00000000-0000-4000-8000-000000000001', 'EstateFlow Demo Realty')
+values ('00000000-0000-4000-8000-000000000001', 'Estate AI Flow Demo Realty')
 on conflict (id) do nothing;
 
 insert into auth.users (
@@ -71,7 +71,7 @@ insert into properties (
 select
   uuid_generate_v5('00000000-0000-4000-8000-000000000001', 'property-' || property_number),
   '00000000-0000-4000-8000-000000000001',
-  'EstateFlow Residence ' || property_number,
+  'Estate AI Residence ' || property_number,
   'Sector ' || (60 + property_number) || ', Gurgaon',
   (array['Apartment', 'Villa', 'Plot', 'Commercial'])[1 + ((property_number - 1) % 4)],
   7000000 + property_number * 900000,

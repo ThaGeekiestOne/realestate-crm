@@ -10,7 +10,7 @@ import { getWorkspaceIdentity } from "@/services/profile-service";
 const demoIdentity: WorkspaceIdentity = {
   id: "demo-riya",
   organizationId: "demo-estateflow",
-  organizationName: "EstateFlow Demo Realty",
+  organizationName: "Estate AI Flow Demo Realty",
   fullName: "Riya Kapoor",
   initials: "RK",
   role: "sales_manager",
@@ -132,15 +132,15 @@ function SignInScreen({ initialError }: { initialError?: string }) {
 
   return <main className="grid min-h-screen bg-[#f6f7f3] lg:grid-cols-[1fr_520px]">
     <section className="hidden bg-[#173f33] p-12 text-white lg:flex lg:flex-col lg:justify-between">
-      <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-white/15"><Building2 size={20} /></div><div><p className="text-base font-bold tracking-[-0.04em]">EstateFlow</p><p className="text-[10px] font-bold tracking-[0.24em] text-white/55">CRM</p></div></div>
+      <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-white/15"><Building2 size={20} /></div><div><p className="text-base font-bold tracking-[-0.04em]">Estate AI Flow</p><p className="text-[10px] font-bold tracking-[0.24em] text-white/55">CRM</p></div></div>
       <div className="max-w-xl"><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#a8d3c2]">Real estate sales operations</p><h1 className="mt-4 text-5xl font-bold tracking-[-0.07em]">Move every enquiry forward.</h1><p className="mt-5 max-w-lg text-sm leading-7 text-white/65">Assign incoming leads, bridge calls, share properties, and keep the team on schedule from one mobile-first workspace.</p></div>
       <div className="flex items-center gap-2 text-xs font-semibold text-white/60"><ShieldCheck size={16} />Organization-scoped access with Supabase RLS</div>
     </section>
     <section className="grid place-items-center px-5 py-10 sm:px-10">
       <div className="w-full max-w-sm">
-        <div className="flex items-center gap-3 lg:hidden"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#176b4d] text-white"><Building2 size={18} /></div><div><p className="text-sm font-bold tracking-[-0.04em]">EstateFlow</p><p className="text-[9px] font-bold tracking-[0.2em] text-[#8d9a95]">CRM</p></div></div>
+        <div className="flex items-center gap-3 lg:hidden"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#176b4d] text-white"><Building2 size={18} /></div><div><p className="text-sm font-bold tracking-[-0.04em]">Estate AI Flow</p><p className="text-[9px] font-bold tracking-[0.2em] text-[#8d9a95]">CRM</p></div></div>
         <p className="mt-12 text-[10px] font-bold uppercase tracking-[0.17em] text-[#85928d] lg:mt-0">Secure workspace</p>
-        <h2 className="mt-2 text-3xl font-bold tracking-[-0.065em] text-[#20312b]">Sign in to EstateFlow</h2>
+        <h2 className="mt-2 text-3xl font-bold tracking-[-0.065em] text-[#20312b]">Sign in to Estate AI Flow</h2>
         <p className="mt-3 text-sm leading-6 text-[#74817c]">Use your organization account to access leads, inventory, and team operations.</p>
         <form onSubmit={signIn} className="mt-8 space-y-4">
           <label className="block text-[11px] font-bold text-[#596862]">Email address<div className="mt-2 flex h-11 items-center gap-2 rounded-xl border border-[#dfe5df] bg-white px-3 focus-within:border-[#86ad9e]"><Mail size={15} className="text-[#8c9893]" /><input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full bg-transparent text-xs outline-none" /></div></label>

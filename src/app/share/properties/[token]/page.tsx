@@ -14,7 +14,7 @@ export default async function PublicPropertySharePage({ params }: { params: Prom
   return <main className="min-h-screen bg-[#f6f7f3]">
     <header className="border-b border-[#e2e7e2] bg-white">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-        <div className="flex items-center gap-2.5"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#176b4d] text-white"><Building2 size={18} /></div><div><p className="text-sm font-bold tracking-[-0.04em]">EstateFlow</p><p className="text-[9px] font-bold tracking-[0.2em] text-[#8d9a95]">PROPERTY SHARE</p></div></div>
+        <div className="flex items-center gap-2.5"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#176b4d] text-white"><Building2 size={18} /></div><div><p className="text-sm font-bold tracking-[-0.04em]">Estate AI Flow</p><p className="text-[9px] font-bold tracking-[0.2em] text-[#8d9a95]">PROPERTY SHARE</p></div></div>
         <span className="rounded-full bg-[#e7f3ed] px-3 py-1.5 text-[10px] font-bold text-[#176b4d]">Shared by {property.sharedBy}</span>
       </div>
     </header>

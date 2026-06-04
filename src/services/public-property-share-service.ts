@@ -31,7 +31,7 @@ export async function getPublicPropertyShare(token: string): Promise<PublicPrope
       description: property.details,
       images: property.images?.length ? property.images : [property.image],
       documents: property.documents ?? [],
-      sharedBy: "EstateFlow Demo Realty",
+      sharedBy: "Estate AI Flow Demo Realty",
     } : null;
   }
 
@@ -119,7 +119,7 @@ function decodeDemoPropertyShare(payload: string): PublicPropertyShare | null {
       description: property.details,
       images,
       documents,
-      sharedBy: "EstateFlow Demo Realty",
+      sharedBy: "Estate AI Flow Demo Realty",
     };
   } catch {
     return null;

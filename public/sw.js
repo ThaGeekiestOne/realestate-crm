@@ -1,4 +1,4 @@
-const CACHE_NAME = "estateflow-shell-v2";
+const CACHE_NAME = "estate-ai-flow-shell-v3";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {

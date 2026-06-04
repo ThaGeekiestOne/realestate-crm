@@ -14,13 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EstateFlow CRM",
+  title: "Estate AI Flow",
   description: "Real estate sales operations in one place.",
-  applicationName: "EstateFlow CRM",
+  applicationName: "Estate AI Flow",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "EstateFlow",
+    title: "Estate AI Flow",
   },
   icons: {
     apple: "/icons/icon-192.png",

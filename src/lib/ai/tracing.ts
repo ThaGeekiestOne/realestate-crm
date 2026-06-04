@@ -7,7 +7,7 @@ export const tracedSearch = traceable(
   {
     name: "property_semantic_search",
     run_type: "retriever",
-    project_name: process.env.LANGCHAIN_PROJECT ?? "estateflow",
+    project_name: process.env.LANGCHAIN_PROJECT ?? "estate-ai-flow",
   },
 );
 
@@ -16,6 +16,6 @@ export const tracedFollowUp = traceable(
   {
     name: "followup_draft_generation",
     run_type: "chain",
-    project_name: process.env.LANGCHAIN_PROJECT ?? "estateflow",
+    project_name: process.env.LANGCHAIN_PROJECT ?? "estate-ai-flow",
   },
 );
